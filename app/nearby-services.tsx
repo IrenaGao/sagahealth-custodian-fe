@@ -14,9 +14,9 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Location from "expo-location";
 import * as Haptics from "expo-haptics";
-import MapView, { Marker, PROVIDER_DEFAULT } from "react-native-maps";
 import { router } from "expo-router";
 import Colors from "@/constants/colors";
+import MapWrapper, { animateToRegion } from "@/components/MapWrapper";
 
 interface NearbyPlace {
   id: string;
@@ -216,44 +216,67 @@ export default function NearbyServicesScreen() {
   const [places, setPlaces] = useState<NearbyPlace[]>([]);
   const [selectedPlace, setSelectedPlace] = useState<string | null>(null);
 
+  const fallbackLat = 37.7749;
+  const fallbackLng = -122.4194;
+
+  const setFallbackLocation = () => {
+    setLocation({ lat: fallbackLat, lng: fallbackLng });
+    setPlaces(generateNearbyPlaces(fallbackLat, fallbackLng));
+    setLoading(false);
+  };
+
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
+      if (Platform.OS === "web") {
+        if (typeof navigator !== "undefined" && navigator.geolocation) {
+          try {
+            const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: false,
+                timeout: 5000,
+              });
+            });
+            if (!cancelled) {
+              const lat = pos.coords.latitude;
+              const lng = pos.coords.longitude;
+              setLocation({ lat, lng });
+              setPlaces(generateNearbyPlaces(lat, lng));
+              setLoading(false);
+            }
+          } catch {
+            if (!cancelled) setFallbackLocation();
+          }
+        } else {
+          if (!cancelled) setFallbackLocation();
+        }
+        return;
+      }
+
       if (!permission?.granted) {
         const result = await requestPermission();
         if (!result.granted) {
-          setLocation({ lat: 37.7749, lng: -122.4194 });
-          setPlaces(generateNearbyPlaces(37.7749, -122.4194));
-          setLoading(false);
+          if (!cancelled) setFallbackLocation();
           return;
         }
       }
 
       try {
-        if (Platform.OS === "web") {
-          const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: false,
-              timeout: 10000,
-            });
-          });
-          const lat = pos.coords.latitude;
-          const lng = pos.coords.longitude;
-          setLocation({ lat, lng });
-          setPlaces(generateNearbyPlaces(lat, lng));
-        } else {
-          const loc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
+        const loc = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        if (!cancelled) {
           setLocation({ lat: loc.coords.latitude, lng: loc.coords.longitude });
           setPlaces(generateNearbyPlaces(loc.coords.latitude, loc.coords.longitude));
+          setLoading(false);
         }
       } catch {
-        setLocation({ lat: 37.7749, lng: -122.4194 });
-        setPlaces(generateNearbyPlaces(37.7749, -122.4194));
-      } finally {
-        setLoading(false);
+        if (!cancelled) setFallbackLocation();
       }
     })();
+
+    return () => { cancelled = true; };
   }, [permission]);
 
   const filteredPlaces =
@@ -262,8 +285,8 @@ export default function NearbyServicesScreen() {
   const handleSelectPlace = (id: string) => {
     setSelectedPlace(id);
     const place = places.find((p) => p.id === id);
-    if (place && mapRef.current) {
-      mapRef.current.animateToRegion({
+    if (place) {
+      animateToRegion(mapRef, {
         latitude: place.latitude,
         longitude: place.longitude,
         latitudeDelta: 0.01,
@@ -286,7 +309,7 @@ export default function NearbyServicesScreen() {
     );
   }
 
-  if (!permission?.granted) {
+  if (Platform.OS !== "web" && !permission?.granted) {
     return (
       <View style={[styles.centered, { paddingTop: insets.top + webTopInset }]}>
         <View style={styles.permHeader}>
@@ -329,42 +352,25 @@ export default function NearbyServicesScreen() {
       </View>
 
       <View style={styles.mapContainer}>
-        {Platform.OS === "web" ? (
-          <View style={styles.webMapFallback}>
-            <Ionicons name="map" size={48} color={Colors.light.tint} />
-            <Text style={styles.webMapText}>Map view available on mobile</Text>
-            <Text style={styles.webMapSub}>Browse services in the list below</Text>
-          </View>
-        ) : (
-          location && (
-            <MapView
-              ref={mapRef}
-              style={StyleSheet.absoluteFillObject}
-              provider={PROVIDER_DEFAULT}
-              initialRegion={{
-                latitude: location.lat,
-                longitude: location.lng,
-                latitudeDelta: 0.04,
-                longitudeDelta: 0.04,
-              }}
-              showsUserLocation
-              showsMyLocationButton={false}
-            >
-              {filteredPlaces.map((place) => (
-                <Marker
-                  key={place.id}
-                  coordinate={{
-                    latitude: place.latitude,
-                    longitude: place.longitude,
-                  }}
-                  title={place.name}
-                  description={`${place.type} - ${place.address}`}
-                  onPress={() => handleMarkerPress(place.id)}
-                  pinColor={place.color}
-                />
-              ))}
-            </MapView>
-          )
+        {location && (
+          <MapWrapper
+            mapRef={mapRef}
+            initialRegion={{
+              latitude: location.lat,
+              longitude: location.lng,
+              latitudeDelta: 0.04,
+              longitudeDelta: 0.04,
+            }}
+            markers={filteredPlaces.map((place) => ({
+              id: place.id,
+              latitude: place.latitude,
+              longitude: place.longitude,
+              title: place.name,
+              description: `${place.type} - ${place.address}`,
+              pinColor: place.color,
+            }))}
+            onMarkerPress={handleMarkerPress}
+          />
         )}
 
         {location && Platform.OS !== "web" && (
@@ -372,7 +378,7 @@ export default function NearbyServicesScreen() {
             style={[styles.recenterBtn, { top: 12, right: 12 }]}
             onPress={() => {
               if (Platform.OS !== "web") Haptics.selectionAsync();
-              mapRef.current?.animateToRegion({
+              animateToRegion(mapRef, {
                 latitude: location.lat,
                 longitude: location.lng,
                 latitudeDelta: 0.04,
@@ -527,22 +533,6 @@ const styles = StyleSheet.create({
   mapContainer: {
     flex: 1,
     backgroundColor: Colors.light.borderLight,
-  },
-  webMapFallback: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-  },
-  webMapText: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 16,
-    color: Colors.light.text,
-  },
-  webMapSub: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 14,
-    color: Colors.light.textMuted,
   },
   recenterBtn: {
     position: "absolute",
