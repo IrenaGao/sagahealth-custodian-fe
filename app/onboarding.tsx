@@ -133,7 +133,7 @@ export default function OnboardingScreen() {
   const canContinue = (): boolean => {
     switch (step) {
       case 0:
-        return firstName.trim().length > 0 && lastName.trim().length > 0 && dob.trim().length > 0 && ssn.trim().length >= 4;
+        return firstName.trim().length > 0 && lastName.trim().length > 0 && dob.trim().length > 0 && ssn.trim().length >= 9;
       case 1:
         return email.trim().length > 0 && phone.trim().length > 0 && street.trim().length > 0 && city.trim().length > 0 && state.trim().length === 2 && zip.trim().length >= 5;
       case 2:
@@ -200,7 +200,7 @@ export default function OnboardingScreen() {
             </View>
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Social Security Number</Text>
-              <TextInput style={styles.input} value={ssn} onChangeText={setSsn} placeholder="Last 4 digits" placeholderTextColor={Colors.light.textMuted} secureTextEntry maxLength={4} keyboardType="number-pad" />
+              <TextInput style={styles.input} value={ssn} onChangeText={setSsn} placeholder="XXX-XX-XXXX" placeholderTextColor={Colors.light.textMuted} secureTextEntry maxLength={11} keyboardType="number-pad" />
             </View>
           </Animated.View>
         );
