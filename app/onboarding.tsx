@@ -20,7 +20,7 @@ import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import Colors from "@/constants/colors";
 import { useHSA } from "@/contexts/HSAContext";
 
-const TOTAL_STEPS = 13;
+const TOTAL_STEPS = 11;
 
 const banks = [
   { id: "chase", name: "Chase" },
@@ -45,7 +45,7 @@ const portfolios = [
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
-  const { completeOnboarding, toggleAutoInvest, toggleFirstDollar } = useHSA();
+  const { completeOnboarding, toggleAutoInvest } = useHSA();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const bottomPad = Platform.OS === "web" ? 34 : 16;
 
@@ -84,18 +84,18 @@ export default function OnboardingScreen() {
   const [portfolioIndex, setPortfolioIndex] = useState(2);
 
   const [autoInvest, setAutoInvest] = useState(true);
-  const [firstDollar, setFirstDollar] = useState(true);
+  const [investPercent, setInvestPercent] = useState(100);
   const [investmentConfirmed, setInvestmentConfirmed] = useState(false);
 
   useEffect(() => {
-    if (step === 4) {
-      const t = setTimeout(() => setStep(5), 3000);
+    if (step === 3) {
+      const t = setTimeout(() => setStep(4), 3000);
       return () => clearTimeout(t);
     }
   }, [step]);
 
   useEffect(() => {
-    if (step === 8) {
+    if (step === 7) {
       setFundsAvailable(false);
       const t = setTimeout(() => setFundsAvailable(true), 3000);
       return () => clearTimeout(t);
@@ -104,12 +104,13 @@ export default function OnboardingScreen() {
 
   const goNext = () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (step === 12) {
+    if (step === 10) {
       if (!investmentConfirmed) {
         setInvestmentConfirmed(true);
         return;
       }
       completeOnboarding();
+      if (autoInvest) toggleAutoInvest();
       router.replace("/(tabs)");
       return;
     }
@@ -126,7 +127,7 @@ export default function OnboardingScreen() {
     setConnectingBank(bankId);
     setTimeout(() => {
       setConnectingBank(null);
-      setStep(7);
+      setStep(6);
     }, 2000);
   };
 
@@ -137,22 +138,18 @@ export default function OnboardingScreen() {
       case 1:
         return email.trim().length > 0 && phone.trim().length > 0 && street.trim().length > 0 && city.trim().length > 0 && state.trim().length === 2 && zip.trim().length >= 5;
       case 2:
-        return planType !== null;
-      case 3:
-        return agreedDisclosures;
-      case 5:
+        return planType !== null && agreedDisclosures;
+      case 4:
         return true;
-      case 7:
+      case 6:
         return contributionAmount > 0;
-      case 8:
+      case 7:
         return fundsAvailable;
+      case 8:
+        return q1 !== null && q2 !== null && q3 !== null && q4 !== null && q5 !== null;
       case 9:
-        return q1 !== null && q2 !== null;
+        return true;
       case 10:
-        return q3 !== null && q4 !== null;
-      case 11:
-        return q5 !== null;
-      case 12:
         return true;
       default:
         return false;
@@ -160,22 +157,50 @@ export default function OnboardingScreen() {
   };
 
   const getButtonText = (): string => {
-    if (step === 5) return "Add Funds";
-    if (step === 8) return "Start Investing";
-    if (step === 12) {
+    if (step === 4) return "Add Funds";
+    if (step === 7) return "Start Investing";
+    if (step === 10) {
       if (investmentConfirmed) return "Go to Dashboard";
       return "Confirm & Invest";
     }
     return "Continue";
   };
 
-  const showButton = step !== 4 && step !== 6;
+  const showButton = step !== 3 && step !== 5;
 
-  const annualLimit = planType === "family" ? 8750 : 4300;
+  const getAge = (): number => {
+    if (!dob || dob.length < 8) return 0;
+    const parts = dob.split("/");
+    if (parts.length !== 3) return 0;
+    const month = parseInt(parts[0], 10);
+    const day = parseInt(parts[1], 10);
+    const year = parseInt(parts[2], 10);
+    if (isNaN(month) || isNaN(day) || isNaN(year)) return 0;
+    const today = new Date();
+    const birthDate = new Date(year, month - 1, day);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
+    return age;
+  };
+  const catchUp = getAge() >= 55 ? 1000 : 0;
+  const annualLimit = (planType === "family" ? 8750 : 4400) + catchUp;
 
   const filteredBanks = banks.filter((b) =>
     b.name.toLowerCase().includes(bankSearch.toLowerCase())
   );
+
+  const getDotSize = (index: number, active: boolean) => {
+    const isBig = index === 0 || index === 2 || index === 4;
+    if (active) {
+      return isBig
+        ? { width: 32, height: 32, borderRadius: 16 }
+        : { width: 16, height: 16, borderRadius: 8 };
+    }
+    return isBig
+      ? { width: 28, height: 28, borderRadius: 14 }
+      : { width: 12, height: 12, borderRadius: 6 };
+  };
 
   const renderStep = () => {
     switch (step) {
@@ -254,7 +279,7 @@ export default function OnboardingScreen() {
               >
                 <Ionicons name="person" size={32} color={planType === "individual" ? Colors.light.tint : Colors.light.textSecondary} />
                 <Text style={[styles.planLabel, planType === "individual" && styles.planLabelActive]}>Individual</Text>
-                <Text style={styles.planLimit}>$4,300/year</Text>
+                <Text style={styles.planLimit}>$4,400/year</Text>
               </Pressable>
               <Pressable
                 style={[styles.planCard, planType === "family" && styles.planCardActive]}
@@ -268,15 +293,7 @@ export default function OnboardingScreen() {
                 <Text style={styles.planLimit}>$8,750/year</Text>
               </Pressable>
             </View>
-          </Animated.View>
-        );
-
-      case 3:
-        return (
-          <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Disclosures</Text>
-            <Text style={styles.stepSubtitle}>Please review and accept the following</Text>
-            <View style={styles.disclosureBox}>
+            <View style={[styles.disclosureBox, { height: 180, marginTop: 24 }]}>
               <ScrollView style={styles.disclosureScroll} nestedScrollEnabled>
                 <Text style={styles.disclosureText}>
                   HSA CUSTODIAL AGREEMENT{"\n\n"}
@@ -305,7 +322,7 @@ export default function OnboardingScreen() {
           </Animated.View>
         );
 
-      case 4:
+      case 3:
         return (
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
             <ActivityIndicator size="large" color={Colors.light.tint} />
@@ -313,7 +330,7 @@ export default function OnboardingScreen() {
           </Animated.View>
         );
 
-      case 5:
+      case 4:
         return (
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
             <Ionicons name="checkmark-circle" size={80} color={Colors.light.success} />
@@ -322,7 +339,7 @@ export default function OnboardingScreen() {
           </Animated.View>
         );
 
-      case 6:
+      case 5:
         return (
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Connect Your Bank</Text>
@@ -360,7 +377,7 @@ export default function OnboardingScreen() {
           </Animated.View>
         );
 
-      case 7:
+      case 6:
         return (
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Set Your Contribution</Text>
@@ -400,10 +417,13 @@ export default function OnboardingScreen() {
               <Text style={styles.limitLabel}>Annual Limit</Text>
               <Text style={styles.limitValue}>${annualLimit.toLocaleString()}</Text>
             </View>
+            {catchUp > 0 && (
+              <Text style={styles.catchUpText}>Includes $1,000 catch-up contribution</Text>
+            )}
           </Animated.View>
         );
 
-      case 8:
+      case 7:
         return (
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
             {fundsAvailable ? (
@@ -421,7 +441,7 @@ export default function OnboardingScreen() {
           </Animated.View>
         );
 
-      case 9:
+      case 8:
         return (
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Investment Profile</Text>
@@ -460,14 +480,6 @@ export default function OnboardingScreen() {
                 ))}
               </View>
             </View>
-          </Animated.View>
-        );
-
-      case 10:
-        return (
-          <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Investment Profile</Text>
-            <Text style={styles.stepSubtitle}>A few more questions</Text>
             <View style={styles.questionSection}>
               <Text style={styles.questionLabel}>What are your investment goals?</Text>
               <View style={styles.optionsWrap}>
@@ -502,14 +514,6 @@ export default function OnboardingScreen() {
                 ))}
               </View>
             </View>
-          </Animated.View>
-        );
-
-      case 11:
-        return (
-          <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
-            <Text style={styles.stepTitle}>Investment Profile</Text>
-            <Text style={styles.stepSubtitle}>Last question</Text>
             <View style={styles.questionSection}>
               <Text style={styles.questionLabel}>If your HSA investment dropped 20% during a market downturn, what would you most likely do?</Text>
               <View style={styles.optionsWrap}>
@@ -527,23 +531,45 @@ export default function OnboardingScreen() {
                 ))}
               </View>
             </View>
+          </Animated.View>
+        );
+
+      case 9:
+        return (
+          <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
+            <Text style={styles.stepTitle}>Recommended Portfolio</Text>
+            <Text style={styles.stepSubtitle}>Based on your risk profile, we recommend:</Text>
             <View style={styles.portfolioSection}>
-              <Text style={styles.portfolioTitle}>Recommended Portfolio</Text>
               <View style={styles.sliderContainer}>
                 <View style={styles.sliderLine} />
                 <View style={styles.sliderDots}>
-                  {portfolios.map((p, i) => (
-                    <Pressable
-                      key={i}
-                      style={styles.sliderDotWrap}
-                      onPress={() => {
-                        if (Platform.OS !== "web") Haptics.selectionAsync();
-                        setPortfolioIndex(i);
-                      }}
-                    >
-                      <View style={[styles.sliderDot, portfolioIndex === i && styles.sliderDotActive]} />
-                    </Pressable>
-                  ))}
+                  {portfolios.map((p, i) => {
+                    const active = portfolioIndex === i;
+                    const dotSize = getDotSize(i, active);
+                    return (
+                      <Pressable
+                        key={i}
+                        style={styles.sliderDotWrap}
+                        onPress={() => {
+                          if (Platform.OS !== "web") Haptics.selectionAsync();
+                          setPortfolioIndex(i);
+                        }}
+                      >
+                        <View
+                          style={[
+                            {
+                              width: dotSize.width,
+                              height: dotSize.height,
+                              borderRadius: dotSize.borderRadius,
+                              backgroundColor: active ? Colors.light.tint : Colors.light.border,
+                              borderWidth: active ? 3 : 2,
+                              borderColor: active ? Colors.light.tintLight : Colors.light.card,
+                            },
+                          ]}
+                        />
+                      </Pressable>
+                    );
+                  })}
                 </View>
               </View>
               <View style={styles.sliderLabels}>
@@ -558,7 +584,7 @@ export default function OnboardingScreen() {
           </Animated.View>
         );
 
-      case 12:
+      case 10:
         if (investmentConfirmed) {
           return (
             <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
@@ -584,17 +610,25 @@ export default function OnboardingScreen() {
                 thumbColor={Colors.light.white}
               />
             </View>
-            <View style={styles.toggleCard}>
-              <View style={styles.toggleInfo}>
-                <Text style={styles.toggleLabel}>First Dollar Investing</Text>
-                <Text style={styles.toggleDesc}>Start investing from your very first dollar</Text>
+            <View style={styles.investPercentSection}>
+              <Text style={styles.toggleLabel}>Contribution Investment Percentage</Text>
+              <Text style={styles.investPercentSubtitle}>What percentage of your contributions should be invested?</Text>
+              <View style={styles.investPercentWrap}>
+                {[25, 50, 75, 100].map((pct) => (
+                  <Pressable
+                    key={pct}
+                    style={[styles.investPercentPill, investPercent === pct && styles.presetBtnActive]}
+                    onPress={() => {
+                      if (Platform.OS !== "web") Haptics.selectionAsync();
+                      setInvestPercent(pct);
+                    }}
+                  >
+                    <Text style={[styles.presetBtnText, investPercent === pct && styles.presetBtnTextActive]}>
+                      {pct}%
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
-              <Switch
-                value={firstDollar}
-                onValueChange={(v) => setFirstDollar(v)}
-                trackColor={{ false: Colors.light.border, true: Colors.light.tint }}
-                thumbColor={Colors.light.white}
-              />
             </View>
           </Animated.View>
         );
@@ -962,6 +996,13 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.light.text,
   },
+  catchUpText: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.tint,
+    textAlign: "center",
+    marginTop: 10,
+  },
   questionSection: {
     marginBottom: 28,
   },
@@ -1009,7 +1050,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   sliderContainer: {
-    height: 40,
+    height: 48,
     justifyContent: "center",
     marginBottom: 8,
   },
@@ -1027,26 +1068,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   sliderDotWrap: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
-  },
-  sliderDot: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: Colors.light.border,
-    borderWidth: 2,
-    borderColor: Colors.light.card,
-  },
-  sliderDotActive: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: Colors.light.tint,
-    borderWidth: 3,
-    borderColor: Colors.light.tintLight,
   },
   sliderLabels: {
     flexDirection: "row",
@@ -1097,6 +1122,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.light.textSecondary,
     lineHeight: 18,
+  },
+  investPercentSection: {
+    marginTop: 10,
+  },
+  investPercentSubtitle: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  investPercentWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+  },
+  investPercentPill: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: Colors.light.card,
+    borderWidth: 2,
+    borderColor: "transparent",
   },
   bottomBar: {
     position: "absolute",
