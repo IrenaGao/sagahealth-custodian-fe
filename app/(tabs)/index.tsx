@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -10,6 +10,7 @@ import {
   Dimensions,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
+import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop, Circle, Line, Text as SvgText } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
@@ -211,108 +212,223 @@ const txStyles = StyleSheet.create({
   },
 });
 
-const performanceData = {
-  "1W": { points: [12200, 12280, 12250, 12350, 12400, 12480, 12550], change: 2.87, changeAmount: 350 },
-  "1M": { points: [11800, 11950, 12000, 11900, 12100, 12300, 12200, 12350, 12550], change: 6.36, changeAmount: 750 },
-  "3M": { points: [11200, 11400, 11100, 11600, 11800, 12000, 11700, 12100, 12300, 12550], change: 12.05, changeAmount: 1350 },
-  "6M": { points: [10500, 10800, 10600, 11000, 11300, 10900, 11500, 11800, 12100, 12300, 12550], change: 19.52, changeAmount: 2050 },
-  "1Y": { points: [9500, 9800, 10200, 9900, 10500, 10800, 11000, 10600, 11200, 11600, 12000, 12300, 12550], change: 32.11, changeAmount: 3050 },
-  "ALL": { points: [5000, 5500, 6200, 5800, 6500, 7200, 7800, 7400, 8200, 9000, 9500, 10200, 10800, 11200, 11800, 12550], change: 151.0, changeAmount: 7550 },
+const HOME_CHART_WIDTH = Dimensions.get("window").width - 80;
+const HOME_CHART_HEIGHT = 150;
+
+type HomePeriod = "1D" | "1W" | "1M" | "YTD" | "1Y";
+
+interface HomeChartPoint {
+  value: number;
+  label: string;
+}
+
+function generateHomeChartData(period: HomePeriod): HomeChartPoint[] {
+  const seed = (s: string) => {
+    let h = 0;
+    for (let i = 0; i < s.length; i++) h = (Math.imul(31, h) + s.charCodeAt(i)) | 0;
+    return h;
+  };
+  const seededRandom = (s: number, i: number) => {
+    const x = Math.sin(s + i * 127.1) * 43758.5453;
+    return x - Math.floor(x);
+  };
+  const s = seed(period);
+  switch (period) {
+    case "1D": {
+      const pts: HomeChartPoint[] = [];
+      let val = 12400;
+      const hours = ["9a", "10a", "11a", "12p", "1p", "2p", "3p", "4p"];
+      for (let i = 0; i < hours.length; i++) {
+        val += (seededRandom(s, i) - 0.45) * 60;
+        pts.push({ value: Math.round(val), label: hours[i] });
+      }
+      return pts;
+    }
+    case "1W": {
+      const pts: HomeChartPoint[] = [];
+      let val = 12200;
+      const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+      for (let i = 0; i < days.length; i++) {
+        val += (seededRandom(s, i) - 0.4) * 80;
+        pts.push({ value: Math.round(val), label: days[i] });
+      }
+      return pts;
+    }
+    case "1M": {
+      const pts: HomeChartPoint[] = [];
+      let val = 11800;
+      for (let i = 1; i <= 30; i += 3) {
+        val += (seededRandom(s, i) - 0.38) * 100;
+        pts.push({ value: Math.round(val), label: `${i}` });
+      }
+      return pts;
+    }
+    case "YTD": {
+      const pts: HomeChartPoint[] = [];
+      let val = 10800;
+      const months = ["Jan", "Feb"];
+      const weeksPerMonth = [4, 2];
+      let idx = 0;
+      for (let m = 0; m < months.length; m++) {
+        for (let w = 0; w < weeksPerMonth[m]; w++) {
+          val += (seededRandom(s, idx) - 0.35) * 150;
+          pts.push({ value: Math.round(val), label: w === 0 ? months[m] : "" });
+          idx++;
+        }
+      }
+      return pts;
+    }
+    case "1Y": {
+      const pts: HomeChartPoint[] = [];
+      let val = 8500;
+      const months = ["Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec", "Jan", "Feb"];
+      for (let i = 0; i < months.length; i++) {
+        val += (seededRandom(s, i) - 0.32) * 300;
+        pts.push({ value: Math.round(val), label: months[i] });
+      }
+      return pts;
+    }
+  }
+}
+
+function getHomeChangeInfo(data: HomeChartPoint[]) {
+  if (data.length < 2) return { change: 0, percent: 0, isPositive: true };
+  const first = data[0].value;
+  const last = data[data.length - 1].value;
+  const change = last - first;
+  const percent = (change / first) * 100;
+  return { change, percent, isPositive: change >= 0 };
+}
+
+const homePeriods: HomePeriod[] = ["1D", "1W", "1M", "YTD", "1Y"];
+
+const homePeriodLabel: Record<HomePeriod, string> = {
+  "1D": "Today",
+  "1W": "Past Week",
+  "1M": "Past Month",
+  "YTD": "Year to Date",
+  "1Y": "Past Year",
 };
 
-type Period = keyof typeof performanceData;
-const periods: Period[] = ["1W", "1M", "3M", "6M", "1Y", "ALL"];
+function HomePerformanceChart() {
+  const [selectedPeriod, setSelectedPeriod] = useState<HomePeriod>("1M");
+  const chartData = useMemo(() => generateHomeChartData(selectedPeriod), [selectedPeriod]);
+  const changeInfo = useMemo(() => getHomeChangeInfo(chartData), [chartData]);
 
-function PerformanceChart({ balance }: { balance: number }) {
-  const [activePeriod, setActivePeriod] = useState<Period>("1M");
-  const data = performanceData[activePeriod];
-  const points = data.points;
-  const min = Math.min(...points);
-  const max = Math.max(...points);
-  const range = max - min || 1;
-  const chartWidth = Dimensions.get("window").width - 80;
-  const chartHeight = 120;
-  const isPositive = data.change >= 0;
-  const lineColor = isPositive ? Colors.light.success : Colors.light.danger;
+  const values = chartData.map((d) => d.value);
+  const minVal = Math.min(...values);
+  const maxVal = Math.max(...values);
+  const range = maxVal - minVal || 1;
+  const padding = { top: 16, bottom: 36, left: 10, right: 10 };
+  const chartW = HOME_CHART_WIDTH - padding.left - padding.right;
+  const chartH = HOME_CHART_HEIGHT - padding.top - padding.bottom;
+  const lineColor = changeInfo.isPositive ? Colors.light.tint : Colors.light.danger;
 
-  const getY = (val: number) => chartHeight - ((val - min) / range) * (chartHeight - 16) - 8;
-  const getX = (i: number) => (i / (points.length - 1)) * chartWidth;
+  const pts = chartData.map((d, i) => ({
+    x: padding.left + (i / (chartData.length - 1)) * chartW,
+    y: padding.top + chartH - ((d.value - minVal) / range) * chartH,
+  }));
+
+  let linePath = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 1; i < pts.length; i++) {
+    const prev = pts[i - 1];
+    const curr = pts[i];
+    const cpx1 = prev.x + (curr.x - prev.x) * 0.4;
+    const cpx2 = prev.x + (curr.x - prev.x) * 0.6;
+    linePath += ` C ${cpx1} ${prev.y} ${cpx2} ${curr.y} ${curr.x} ${curr.y}`;
+  }
+
+  const areaPath =
+    linePath +
+    ` L ${pts[pts.length - 1].x} ${padding.top + chartH}` +
+    ` L ${pts[0].x} ${padding.top + chartH} Z`;
+
+  const gridLines = 3;
+  const gridValues: number[] = [];
+  for (let i = 0; i <= gridLines; i++) {
+    gridValues.push(minVal + (range / gridLines) * i);
+  }
+
+  const labelStep = Math.max(1, Math.floor(chartData.length / 5));
 
   return (
     <View style={chartStyles.container}>
-      <View style={chartStyles.header}>
-        <Text style={chartStyles.title}>Investment Performance</Text>
-        <View style={chartStyles.changeBadge}>
-          <Feather name={isPositive ? "trending-up" : "trending-down"} size={14} color={lineColor} />
-          <Text style={[chartStyles.changeText, { color: lineColor }]}>
-            {isPositive ? "+" : ""}{data.change.toFixed(2)}%
+      <View style={chartStyles.chartHeader}>
+        <Text style={chartStyles.title}>Performance</Text>
+        <View style={chartStyles.chartChangeRow}>
+          <Ionicons
+            name={changeInfo.isPositive ? "arrow-up" : "arrow-down"}
+            size={14}
+            color={changeInfo.isPositive ? Colors.light.success : Colors.light.danger}
+          />
+          <Text style={[chartStyles.chartChangeText, { color: changeInfo.isPositive ? Colors.light.success : Colors.light.danger }]}>
+            {changeInfo.isPositive ? "+" : ""}${Math.abs(changeInfo.change).toFixed(0)} ({changeInfo.isPositive ? "+" : ""}{changeInfo.percent.toFixed(2)}%)
           </Text>
         </View>
       </View>
-      <Text style={chartStyles.changeAmount}>
-        {isPositive ? "+" : "-"}${Math.abs(data.changeAmount).toLocaleString()} this period
-      </Text>
+      <Text style={chartStyles.periodLabel}>{homePeriodLabel[selectedPeriod]}</Text>
 
-      <View style={[chartStyles.chartArea, { height: chartHeight }]}>
-        {[0, 1, 2, 3].map((i) => (
-          <View key={i} style={[chartStyles.gridLine, { top: (chartHeight / 3) * i }]} />
-        ))}
-        {points.map((val, i) => {
-          if (i === 0) return null;
-          const x1 = getX(i - 1);
-          const y1 = getY(points[i - 1]);
-          const x2 = getX(i);
-          const y2 = getY(val);
-          const dx = x2 - x1;
-          const dy = y2 - y1;
-          const length = Math.sqrt(dx * dx + dy * dy);
-          const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-          return (
-            <View
-              key={i}
-              style={{
-                position: "absolute" as const,
-                left: x1,
-                top: y1,
-                width: length,
-                height: 2.5,
-                backgroundColor: lineColor,
-                borderRadius: 1,
-                transform: [{ rotate: `${angle}deg` }],
-                transformOrigin: "left center",
-              }}
-            />
-          );
-        })}
-        {points.map((val, i) => (
-          <View
-            key={`dot-${i}`}
-            style={{
-              position: "absolute" as const,
-              left: getX(i) - (i === points.length - 1 ? 4 : 2),
-              top: getY(val) - (i === points.length - 1 ? 4 : 2),
-              width: i === points.length - 1 ? 8 : 4,
-              height: i === points.length - 1 ? 8 : 4,
-              borderRadius: i === points.length - 1 ? 4 : 2,
-              backgroundColor: i === points.length - 1 ? lineColor : "transparent",
-              borderWidth: i === points.length - 1 ? 2 : 0,
-              borderColor: Colors.light.card,
-            }}
+      <View style={chartStyles.chartContainer}>
+        <Svg width={HOME_CHART_WIDTH} height={HOME_CHART_HEIGHT}>
+          <Defs>
+            <SvgGradient id="homeAreaGrad" x1="0" y1="0" x2="0" y2="1">
+              <Stop offset="0" stopColor={lineColor} stopOpacity="0.2" />
+              <Stop offset="1" stopColor={lineColor} stopOpacity="0.02" />
+            </SvgGradient>
+          </Defs>
+          {gridValues.map((gv, i) => {
+            const y = padding.top + chartH - ((gv - minVal) / range) * chartH;
+            return (
+              <Line
+                key={i}
+                x1={padding.left}
+                y1={y}
+                x2={padding.left + chartW}
+                y2={y}
+                stroke={Colors.light.borderLight}
+                strokeWidth={1}
+              />
+            );
+          })}
+          <Path d={areaPath} fill="url(#homeAreaGrad)" />
+          <Path d={linePath} stroke={lineColor} strokeWidth={2.5} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          <Circle
+            cx={pts[pts.length - 1].x}
+            cy={pts[pts.length - 1].y}
+            r={4}
+            fill={lineColor}
+            stroke={Colors.light.card}
+            strokeWidth={2}
           />
-        ))}
+          {chartData.map((d, i) =>
+            i % labelStep === 0 && d.label ? (
+              <SvgText
+                key={i}
+                x={pts[i].x}
+                y={HOME_CHART_HEIGHT - 6}
+                fontSize={10}
+                fill={Colors.light.textMuted}
+                textAnchor="middle"
+                fontFamily="DMSans_400Regular"
+              >
+                {d.label}
+              </SvgText>
+            ) : null
+          )}
+        </Svg>
       </View>
 
-      <View style={chartStyles.periods}>
-        {periods.map((p) => (
+      <View style={chartStyles.periodRow}>
+        {homePeriods.map((p) => (
           <Pressable
             key={p}
-            style={[chartStyles.periodBtn, activePeriod === p && chartStyles.periodBtnActive]}
+            style={[chartStyles.periodPill, selectedPeriod === p && chartStyles.periodPillActive]}
             onPress={() => {
               if (Platform.OS !== "web") Haptics.selectionAsync();
-              setActivePeriod(p);
+              setSelectedPeriod(p);
             }}
           >
-            <Text style={[chartStyles.periodText, activePeriod === p && chartStyles.periodTextActive]}>{p}</Text>
+            <Text style={[chartStyles.periodPillText, selectedPeriod === p && chartStyles.periodPillTextActive]}>{p}</Text>
           </Pressable>
         ))}
       </View>
@@ -327,68 +443,57 @@ const chartStyles = StyleSheet.create({
     padding: 20,
     marginBottom: 16,
   },
-  header: {
+  chartHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 4,
   },
   title: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 15,
+    fontFamily: "DMSans_700Bold",
+    fontSize: 17,
     color: Colors.light.text,
   },
-  changeBadge: {
+  chartChangeRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    backgroundColor: Colors.light.successLight,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
   },
-  changeText: {
+  chartChangeText: {
     fontFamily: "DMSans_600SemiBold",
     fontSize: 13,
   },
-  changeAmount: {
+  periodLabel: {
     fontFamily: "DMSans_400Regular",
     fontSize: 13,
-    color: Colors.light.textSecondary,
+    color: Colors.light.textMuted,
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  chartContainer: {
+    alignItems: "center",
     marginBottom: 16,
   },
-  chartArea: {
-    width: "100%",
-    marginBottom: 16,
-    overflow: "hidden",
-  },
-  gridLine: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    height: 1,
-    backgroundColor: Colors.light.borderLight,
-  },
-  periods: {
+  periodRow: {
     flexDirection: "row",
-    gap: 6,
-    justifyContent: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.light.borderLight,
+    borderRadius: 24,
+    padding: 4,
   },
-  periodBtn: {
-    paddingHorizontal: 14,
+  periodPill: {
+    paddingHorizontal: 16,
     paddingVertical: 8,
-    borderRadius: 10,
-    backgroundColor: Colors.light.background,
+    borderRadius: 20,
   },
-  periodBtnActive: {
+  periodPillActive: {
     backgroundColor: Colors.light.tint,
   },
-  periodText: {
-    fontFamily: "DMSans_500Medium",
+  periodPillText: {
+    fontFamily: "DMSans_600SemiBold",
     fontSize: 13,
-    color: Colors.light.textSecondary,
+    color: Colors.light.textMuted,
   },
-  periodTextActive: {
+  periodPillTextActive: {
     color: Colors.light.white,
   },
 });
@@ -444,7 +549,7 @@ export default function HomeScreen() {
         </Animated.View>
 
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(200).duration(500) : undefined}>
-          <PerformanceChart balance={balance} />
+          <HomePerformanceChart />
         </Animated.View>
 
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(300).duration(500) : undefined}>
