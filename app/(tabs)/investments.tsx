@@ -239,39 +239,108 @@ const periodStyles = StyleSheet.create({
   },
 });
 
-function AllocationBar({ holdings }: { holdings: { allocation: number; color: string }[] }) {
+const PIE_SIZE = 160;
+const PIE_RADIUS = 60;
+const PIE_INNER = 40;
+
+function PieChart({ holdings }: { holdings: { name: string; allocation: number; balance: number; color: string }[] }) {
+  const total = holdings.reduce((s, h) => s + h.allocation, 0);
+  let cumAngle = -90;
+
+  const slices = holdings.map((h) => {
+    const angle = (h.allocation / total) * 360;
+    const startAngle = cumAngle;
+    cumAngle += angle;
+    return { ...h, startAngle, angle };
+  });
+
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+
+  const arcPath = (startDeg: number, angleDeg: number, outer: number, inner: number) => {
+    const gap = 1.5;
+    const s = startDeg + gap / 2;
+    const a = angleDeg - gap;
+    if (a <= 0) return "";
+
+    const cx = PIE_SIZE / 2;
+    const cy = PIE_SIZE / 2;
+    const largeArc = a > 180 ? 1 : 0;
+
+    const sx1 = cx + outer * Math.cos(toRad(s));
+    const sy1 = cy + outer * Math.sin(toRad(s));
+    const ex1 = cx + outer * Math.cos(toRad(s + a));
+    const ey1 = cy + outer * Math.sin(toRad(s + a));
+    const sx2 = cx + inner * Math.cos(toRad(s + a));
+    const sy2 = cy + inner * Math.sin(toRad(s + a));
+    const ex2 = cx + inner * Math.cos(toRad(s));
+    const ey2 = cy + inner * Math.sin(toRad(s));
+
+    return `M ${sx1} ${sy1} A ${outer} ${outer} 0 ${largeArc} 1 ${ex1} ${ey1} L ${sx2} ${sy2} A ${inner} ${inner} 0 ${largeArc} 0 ${ex2} ${ey2} Z`;
+  };
+
   return (
-    <View style={alloStyles.track}>
-      {holdings.map((h, i) => (
-        <View
-          key={i}
-          style={[
-            alloStyles.segment,
-            {
-              flex: h.allocation,
-              backgroundColor: h.color,
-              borderTopLeftRadius: i === 0 ? 6 : 0,
-              borderBottomLeftRadius: i === 0 ? 6 : 0,
-              borderTopRightRadius: i === holdings.length - 1 ? 6 : 0,
-              borderBottomRightRadius: i === holdings.length - 1 ? 6 : 0,
-            },
-          ]}
-        />
-      ))}
+    <View style={pieStyles.wrapper}>
+      <View style={pieStyles.chartRow}>
+        <Svg width={PIE_SIZE} height={PIE_SIZE}>
+          {slices.map((slice, i) => (
+            <Path
+              key={i}
+              d={arcPath(slice.startAngle, slice.angle, PIE_RADIUS, PIE_INNER)}
+              fill={slice.color}
+            />
+          ))}
+        </Svg>
+        <View style={pieStyles.legend}>
+          {holdings.map((h) => (
+            <View key={h.name} style={pieStyles.legendItem}>
+              <View style={[pieStyles.legendDot, { backgroundColor: h.color }]} />
+              <View style={pieStyles.legendInfo}>
+                <Text style={pieStyles.legendName}>{h.name}</Text>
+                <Text style={pieStyles.legendDetail}>{h.allocation}% · ${h.balance.toLocaleString()}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      </View>
     </View>
   );
 }
 
-const alloStyles = StyleSheet.create({
-  track: {
-    flexDirection: "row",
-    height: 10,
-    borderRadius: 6,
-    overflow: "hidden",
-    gap: 2,
+const pieStyles = StyleSheet.create({
+  wrapper: {
+    marginTop: 16,
   },
-  segment: {
-    height: "100%",
+  chartRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 24,
+  },
+  legend: {
+    flex: 1,
+    gap: 14,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendInfo: {
+    gap: 1,
+  },
+  legendName: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+    color: Colors.light.text,
+  },
+  legendDetail: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    color: Colors.light.textMuted,
   },
 });
 
@@ -542,17 +611,7 @@ export default function InvestmentsScreen() {
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(200).duration(500) : undefined}>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Portfolio Allocation</Text>
-            <View style={{ marginVertical: 16 }}>
-              <AllocationBar holdings={holdings} />
-            </View>
-            <View style={styles.legendRow}>
-              {holdings.map((h) => (
-                <View key={h.id} style={styles.legendItem}>
-                  <View style={[styles.legendDot, { backgroundColor: h.color }]} />
-                  <Text style={styles.legendText}>{h.ticker} {h.allocation}%</Text>
-                </View>
-              ))}
-            </View>
+            <PieChart holdings={holdings} />
           </View>
         </Animated.View>
 
@@ -692,25 +751,5 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.borderLight,
     borderRadius: 24,
     padding: 4,
-  },
-  legendRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  legendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  legendText: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 12,
-    color: Colors.light.textSecondary,
   },
 });

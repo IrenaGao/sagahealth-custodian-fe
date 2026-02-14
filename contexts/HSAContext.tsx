@@ -58,10 +58,9 @@ const HSAContext = createContext<HSAContextValue | null>(null);
 const STORAGE_KEY = "bloom_hsa_data";
 
 const defaultHoldings: InvestmentHolding[] = [
-  { id: "1", name: "Total Stock Market", ticker: "VTI", allocation: 40, balance: 3420, returnPercent: 12.4, color: "#0D9373" },
-  { id: "2", name: "S&P 500 Index", ticker: "VOO", allocation: 25, balance: 2137.5, returnPercent: 14.2, color: "#0EA5E9" },
-  { id: "3", name: "Bond Market Index", ticker: "BND", allocation: 20, balance: 1710, returnPercent: 3.8, color: "#F97316" },
-  { id: "4", name: "International Stock", ticker: "VXUS", allocation: 15, balance: 1282.5, returnPercent: 7.1, color: "#8B5CF6" },
+  { id: "1", name: "Stocks", ticker: "Stocks", allocation: 60, balance: 5130, returnPercent: 12.8, color: "#0D9373" },
+  { id: "2", name: "Bonds", ticker: "Bonds", allocation: 25, balance: 2137.5, returnPercent: 3.8, color: "#0EA5E9" },
+  { id: "3", name: "Cash", ticker: "Cash", allocation: 15, balance: 1282.5, returnPercent: 0.5, color: "#F97316" },
 ];
 
 const defaultTransactions: Transaction[] = [
