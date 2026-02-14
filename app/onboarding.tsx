@@ -64,6 +64,7 @@ export default function OnboardingScreen() {
   const [zip, setZip] = useState("");
 
   const [planType, setPlanType] = useState<"individual" | "family" | null>(null);
+  const [spouseOver55, setSpouseOver55] = useState(false);
 
   const [agreedDisclosures, setAgreedDisclosures] = useState(false);
 
@@ -183,7 +184,8 @@ export default function OnboardingScreen() {
     if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) age--;
     return age;
   };
-  const catchUp = getAge() >= 55 ? 1000 : 0;
+  const isOver55 = getAge() >= 55;
+  const catchUp = isOver55 ? (planType === "family" && spouseOver55 ? 2000 : 1000) : 0;
   const annualLimit = (planType === "family" ? 8750 : 4400) + catchUp;
 
   const filteredBanks = banks.filter((b) =>
@@ -279,8 +281,8 @@ export default function OnboardingScreen() {
               >
                 <Ionicons name="person" size={32} color={planType === "individual" ? Colors.light.tint : Colors.light.textSecondary} />
                 <Text style={[styles.planLabel, planType === "individual" && styles.planLabelActive]}>Individual</Text>
-                <Text style={styles.planLimit}>{catchUp > 0 ? "$5,400" : "$4,400"}/year</Text>
-                {catchUp > 0 && <Text style={styles.planCatchUp}>Includes $1,000 catch-up</Text>}
+                <Text style={styles.planLimit}>{isOver55 ? "$5,400" : "$4,400"}/year</Text>
+                {isOver55 && <Text style={styles.planCatchUp}>Includes $1,000 catch-up</Text>}
               </Pressable>
               <Pressable
                 style={[styles.planCard, planType === "family" && styles.planCardActive]}
@@ -291,14 +293,32 @@ export default function OnboardingScreen() {
               >
                 <Ionicons name="people" size={32} color={planType === "family" ? Colors.light.tint : Colors.light.textSecondary} />
                 <Text style={[styles.planLabel, planType === "family" && styles.planLabelActive]}>Family</Text>
-                <Text style={styles.planLimit}>{catchUp > 0 ? "$9,750" : "$8,750"}/year</Text>
-                {catchUp > 0 && <Text style={styles.planCatchUp}>Includes $1,000 catch-up</Text>}
+                <Text style={styles.planLimit}>{isOver55 ? (spouseOver55 ? "$10,750" : "$9,750") : "$8,750"}/year</Text>
+                {isOver55 && <Text style={styles.planCatchUp}>{spouseOver55 ? "Includes $2,000 catch-up" : "Includes $1,000 catch-up"}</Text>}
               </Pressable>
             </View>
-            {catchUp > 0 && (
+            {isOver55 && planType === "family" && (
+              <Pressable
+                style={styles.spouseRow}
+                onPress={() => {
+                  if (Platform.OS !== "web") Haptics.selectionAsync();
+                  setSpouseOver55(!spouseOver55);
+                }}
+              >
+                <View style={[styles.checkbox, spouseOver55 && styles.checkboxActive]}>
+                  {spouseOver55 && <Ionicons name="checkmark" size={14} color={Colors.light.white} />}
+                </View>
+                <Text style={styles.spouseLabel}>My spouse is also 55 or older (+$1,000 additional catch-up)</Text>
+              </Pressable>
+            )}
+            {isOver55 && (
               <View style={styles.catchUpBanner}>
                 <Ionicons name="information-circle" size={20} color={Colors.light.info} />
-                <Text style={styles.catchUpBannerText}>Since you're 55 or older, you qualify for an additional $1,000 catch-up contribution.</Text>
+                <Text style={styles.catchUpBannerText}>
+                  {planType === "family" && spouseOver55
+                    ? "Both you and your spouse qualify for catch-up contributions, adding $2,000 to your annual limit."
+                    : "Since you're 55 or older, you qualify for an additional $1,000 catch-up contribution."}
+                </Text>
               </View>
             )}
             <View style={[styles.disclosureBox, { height: 180, marginTop: 24 }]}>
@@ -426,7 +446,7 @@ export default function OnboardingScreen() {
               <Text style={styles.limitValue}>${annualLimit.toLocaleString()}</Text>
             </View>
             {catchUp > 0 && (
-              <Text style={styles.catchUpText}>Includes $1,000 catch-up contribution</Text>
+              <Text style={styles.catchUpText}>Includes {catchUp > 1000 ? "$2,000" : "$1,000"} catch-up contribution</Text>
             )}
           </Animated.View>
         );
@@ -1032,6 +1052,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.light.info,
     lineHeight: 18,
+  },
+  spouseRow: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 12,
+    marginTop: 16,
+    backgroundColor: Colors.light.card,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+  },
+  spouseLabel: {
+    flex: 1,
+    fontFamily: "DMSans_500Medium",
+    fontSize: 14,
+    color: Colors.light.text,
+    lineHeight: 20,
   },
   questionSection: {
     marginBottom: 28,
