@@ -545,6 +545,27 @@ export default function HomeScreen() {
                 <Text style={styles.splitValue}>${cashBalance.toLocaleString()}</Text>
               </View>
             </View>
+
+            <View style={styles.contribDivider} />
+            <View style={styles.contribSection}>
+              <View style={styles.contribHeader}>
+                <Text style={styles.contribLabel}>Annual Contributions</Text>
+                <Text style={styles.contribRemaining}>
+                  ${(contributionLimit - contributionYTD).toLocaleString()} left
+                </Text>
+              </View>
+              <View style={styles.contribTrack}>
+                <View style={[styles.contribFill, { width: `${Math.min((contributionYTD / contributionLimit) * 100, 100)}%` }]} />
+              </View>
+              <View style={styles.contribFooter}>
+                <Text style={styles.contribDetail}>
+                  ${contributionYTD.toLocaleString()} of ${contributionLimit.toLocaleString()}
+                </Text>
+                <Text style={styles.contribPercent}>
+                  {Math.round((contributionYTD / contributionLimit) * 100)}%
+                </Text>
+              </View>
+            </View>
           </LinearGradient>
         </Animated.View>
 
@@ -586,10 +607,6 @@ export default function HomeScreen() {
         </Animated.View>
 
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(400).duration(500) : undefined}>
-          <ContributionRing current={contributionYTD} limit={contributionLimit} />
-        </Animated.View>
-
-        <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(500).duration(500) : undefined}>
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Recent Activity</Text>
@@ -695,6 +712,56 @@ const styles = StyleSheet.create({
     height: 20,
     backgroundColor: "rgba(255,255,255,0.15)",
     marginHorizontal: 12,
+  },
+  contribDivider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.12)",
+    marginTop: 20,
+    marginBottom: 16,
+  },
+  contribSection: {
+    gap: 8,
+  },
+  contribHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  contribLabel: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.6)",
+  },
+  contribRemaining: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 13,
+    color: "rgba(255,255,255,0.85)",
+  },
+  contribTrack: {
+    height: 6,
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  contribFill: {
+    height: "100%",
+    backgroundColor: Colors.light.tintMuted,
+    borderRadius: 3,
+  },
+  contribFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  contribDetail: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.45)",
+  },
+  contribPercent: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 12,
+    color: "rgba(255,255,255,0.45)",
   },
   quickActions: {
     flexDirection: "row",
