@@ -6,29 +6,28 @@ import {
   ScrollView,
   Pressable,
   Platform,
-  FlatList,
 } from "react-native";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { router } from "expo-router";
 import Colors from "@/constants/colors";
 
-const categories = [
-  { id: "all", label: "All", icon: "grid" },
-  { id: "medical", label: "Medical", icon: "heart" },
-  { id: "dental", label: "Dental", icon: "smile" },
-  { id: "vision", label: "Vision", icon: "eye" },
-  { id: "pharmacy", label: "Pharmacy", icon: "package" },
-  { id: "therapy", label: "Therapy", icon: "message-circle" },
-  { id: "fitness", label: "Fitness", icon: "activity" },
+type MainCategory = "products" | "apps" | "services";
+
+const mainCategories: { id: MainCategory; label: string; icon: string; iconSet: "feather" | "ion" }[] = [
+  { id: "products", label: "Products", icon: "shopping-bag", iconSet: "feather" },
+  { id: "apps", label: "Apps", icon: "smartphone", iconSet: "feather" },
+  { id: "services", label: "Services", icon: "heart", iconSet: "feather" },
 ];
 
 interface ServiceItem {
   id: string;
   name: string;
   provider: string;
-  category: string;
+  mainCategory: MainCategory;
+  subCategory: string;
   price: string;
   rating: number;
   reviews: number;
@@ -41,24 +40,196 @@ interface ServiceItem {
 
 const services: ServiceItem[] = [
   {
-    id: "s1",
-    name: "Annual Health Checkup",
-    provider: "CityHealth Clinic",
-    category: "medical",
-    price: "$150",
-    rating: 4.8,
-    reviews: 324,
-    icon: "heart",
-    iconColor: Colors.light.danger,
-    iconBg: Colors.light.dangerLight,
+    id: "p1",
+    name: "Allergy Relief 24-Hour",
+    provider: "HealthShield Pharma",
+    mainCategory: "products",
+    subCategory: "OTC Medications",
+    price: "$18.99",
+    rating: 4.7,
+    reviews: 1420,
+    icon: "package",
+    iconColor: Colors.light.tint,
+    iconBg: Colors.light.tintLight,
     hsaEligible: true,
     featured: true,
   },
   {
+    id: "p2",
+    name: "Adjustable Dumbbells Set",
+    provider: "FitGear Pro",
+    mainCategory: "products",
+    subCategory: "Fitness Equipment",
+    price: "$189",
+    rating: 4.8,
+    reviews: 834,
+    icon: "activity",
+    iconColor: Colors.light.accent,
+    iconBg: Colors.light.accentLight,
+    hsaEligible: false,
+  },
+  {
+    id: "p3",
+    name: "First Aid Kit - Premium",
+    provider: "MedReady",
+    mainCategory: "products",
+    subCategory: "HSA Eligible",
+    price: "$34.99",
+    rating: 4.9,
+    reviews: 2103,
+    icon: "shield",
+    iconColor: Colors.light.danger,
+    iconBg: Colors.light.dangerLight,
+    hsaEligible: true,
+  },
+  {
+    id: "p4",
+    name: "Digital Thermometer",
+    provider: "ThermoScan",
+    mainCategory: "products",
+    subCategory: "HSA Eligible",
+    price: "$24.99",
+    rating: 4.6,
+    reviews: 567,
+    icon: "thermometer",
+    iconColor: Colors.light.info,
+    iconBg: Colors.light.infoLight,
+    hsaEligible: true,
+  },
+  {
+    id: "p5",
+    name: "Resistance Bands Set",
+    provider: "FlexFit",
+    mainCategory: "products",
+    subCategory: "Fitness Equipment",
+    price: "$29.99",
+    rating: 4.5,
+    reviews: 389,
+    icon: "activity",
+    iconColor: Colors.light.accent,
+    iconBg: Colors.light.accentLight,
+    hsaEligible: false,
+  },
+  {
+    id: "p6",
+    name: "Pain Relief Cream",
+    provider: "NaturalCare",
+    mainCategory: "products",
+    subCategory: "OTC Medications",
+    price: "$12.49",
+    rating: 4.4,
+    reviews: 912,
+    icon: "package",
+    iconColor: Colors.light.tint,
+    iconBg: Colors.light.tintLight,
+    hsaEligible: true,
+  },
+  {
+    id: "a1",
+    name: "Flo - Women's Health",
+    provider: "Flo Health Inc.",
+    mainCategory: "apps",
+    subCategory: "Women's Health",
+    price: "$9.99/mo",
+    rating: 4.9,
+    reviews: 45200,
+    icon: "heart",
+    iconColor: "#E91E8C",
+    iconBg: "#FDE8F4",
+    hsaEligible: true,
+    featured: true,
+  },
+  {
+    id: "a2",
+    name: "BetterHelp Therapy",
+    provider: "BetterHelp",
+    mainCategory: "apps",
+    subCategory: "Therapy",
+    price: "$65/week",
+    rating: 4.7,
+    reviews: 32100,
+    icon: "message-circle",
+    iconColor: Colors.light.tint,
+    iconBg: Colors.light.tintLight,
+    hsaEligible: true,
+  },
+  {
+    id: "a3",
+    name: "Hinge Health - PT",
+    provider: "Hinge Health",
+    mainCategory: "apps",
+    subCategory: "Physical Therapy",
+    price: "Free w/ plan",
+    rating: 4.8,
+    reviews: 12300,
+    icon: "user",
+    iconColor: Colors.light.info,
+    iconBg: Colors.light.infoLight,
+    hsaEligible: true,
+  },
+  {
+    id: "a4",
+    name: "Calm - Meditation",
+    provider: "Calm.com",
+    mainCategory: "apps",
+    subCategory: "Therapy",
+    price: "$14.99/mo",
+    rating: 4.8,
+    reviews: 67800,
+    icon: "sun",
+    iconColor: "#8B5CF6",
+    iconBg: "#F3F0FF",
+    hsaEligible: false,
+  },
+  {
+    id: "s1",
+    name: "Equinox Membership",
+    provider: "Equinox",
+    mainCategory: "services",
+    subCategory: "Gym",
+    price: "$185/mo",
+    rating: 4.6,
+    reviews: 5670,
+    icon: "activity",
+    iconColor: Colors.light.accent,
+    iconBg: Colors.light.accentLight,
+    hsaEligible: false,
+    featured: true,
+  },
+  {
     id: "s2",
+    name: "CorePower Yoga",
+    provider: "CorePower Studios",
+    mainCategory: "services",
+    subCategory: "Yoga",
+    price: "$159/mo",
+    rating: 4.8,
+    reviews: 3420,
+    icon: "sun",
+    iconColor: "#8B5CF6",
+    iconBg: "#F3F0FF",
+    hsaEligible: false,
+  },
+  {
+    id: "s3",
+    name: "Club Pilates Session",
+    provider: "Club Pilates",
+    mainCategory: "services",
+    subCategory: "Pilates",
+    price: "$30/class",
+    rating: 4.7,
+    reviews: 2190,
+    icon: "heart",
+    iconColor: "#E91E8C",
+    iconBg: "#FDE8F4",
+    hsaEligible: false,
+  },
+  {
+    id: "s4",
     name: "Teeth Cleaning & Exam",
     provider: "BrightSmile Dental",
-    category: "dental",
+    mainCategory: "services",
+    subCategory: "Dental",
     price: "$120",
     rating: 4.9,
     reviews: 512,
@@ -68,118 +239,91 @@ const services: ServiceItem[] = [
     hsaEligible: true,
   },
   {
-    id: "s3",
+    id: "s5",
     name: "Comprehensive Eye Exam",
     provider: "VisionFirst Optometry",
-    category: "vision",
+    mainCategory: "services",
+    subCategory: "Vision",
     price: "$89",
     rating: 4.7,
     reviews: 198,
     icon: "eye",
-    iconColor: "#8B5CF6",
-    iconBg: "#F3F0FF",
-    hsaEligible: true,
-  },
-  {
-    id: "s4",
-    name: "Prescription Delivery",
-    provider: "MedExpress Pharmacy",
-    category: "pharmacy",
-    price: "Varies",
-    rating: 4.6,
-    reviews: 876,
-    icon: "package",
-    iconColor: Colors.light.accent,
-    iconBg: Colors.light.accentLight,
-    hsaEligible: true,
-    featured: true,
-  },
-  {
-    id: "s5",
-    name: "Online Therapy Session",
-    provider: "MindWell",
-    category: "therapy",
-    price: "$85/session",
-    rating: 4.9,
-    reviews: 1243,
-    icon: "message-circle",
     iconColor: Colors.light.tint,
     iconBg: Colors.light.tintLight,
     hsaEligible: true,
   },
   {
     id: "s6",
-    name: "Personal Training (4 sessions)",
-    provider: "FitLife Wellness",
-    category: "fitness",
-    price: "$280",
-    rating: 4.5,
-    reviews: 167,
-    icon: "activity",
+    name: "F45 Training",
+    provider: "F45 Fitness",
+    mainCategory: "services",
+    subCategory: "Fitness",
+    price: "$60/week",
+    rating: 4.6,
+    reviews: 4300,
+    icon: "zap",
     iconColor: Colors.light.accent,
     iconBg: Colors.light.accentLight,
     hsaEligible: false,
   },
-  {
-    id: "s7",
-    name: "Chiropractic Adjustment",
-    provider: "AlignWell Chiro",
-    category: "medical",
-    price: "$65",
-    rating: 4.7,
-    reviews: 432,
-    icon: "heart",
-    iconColor: Colors.light.danger,
-    iconBg: Colors.light.dangerLight,
-    hsaEligible: true,
-  },
-  {
-    id: "s8",
-    name: "Prescription Sunglasses",
-    provider: "LensPlus Optical",
-    category: "vision",
-    price: "From $149",
-    rating: 4.4,
-    reviews: 89,
-    icon: "eye",
-    iconColor: "#8B5CF6",
-    iconBg: "#F3F0FF",
-    hsaEligible: true,
-  },
-  {
-    id: "s9",
-    name: "Meditation & Mindfulness",
-    provider: "CalmSpace",
-    category: "therapy",
-    price: "$12/month",
-    rating: 4.8,
-    reviews: 2105,
-    icon: "message-circle",
-    iconColor: Colors.light.tint,
-    iconBg: Colors.light.tintLight,
-    hsaEligible: false,
-  },
-  {
-    id: "s10",
-    name: "Orthodontics Consultation",
-    provider: "SmileDirect",
-    category: "dental",
-    price: "Free",
-    rating: 4.3,
-    reviews: 567,
-    icon: "smile",
-    iconColor: Colors.light.info,
-    iconBg: Colors.light.infoLight,
-    hsaEligible: true,
-  },
 ];
 
-function CategoryPill({
+function MainCategoryTab({
   cat,
   active,
   onPress,
 }: {
-  cat: typeof categories[0];
+  cat: typeof mainCategories[0];
+  active: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      style={[tabStyles.tab, active && tabStyles.tabActive]}
+      onPress={() => {
+        if (Platform.OS !== "web") Haptics.selectionAsync();
+        onPress();
+      }}
+    >
+      <Feather
+        name={cat.icon as any}
+        size={16}
+        color={active ? Colors.light.white : Colors.light.textSecondary}
+      />
+      <Text style={[tabStyles.text, active && tabStyles.textActive]}>{cat.label}</Text>
+    </Pressable>
+  );
+}
+
+const tabStyles = StyleSheet.create({
+  tab: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+  },
+  tabActive: {
+    backgroundColor: Colors.light.tint,
+  },
+  text: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+  },
+  textActive: {
+    color: Colors.light.white,
+  },
+});
+
+function SubCategoryPill({
+  label,
+  active,
+  onPress,
+}: {
+  label: string;
   active: boolean;
   onPress: () => void;
 }) {
@@ -191,31 +335,23 @@ function CategoryPill({
         onPress();
       }}
     >
-      <Feather
-        name={cat.icon as any}
-        size={14}
-        color={active ? Colors.light.white : Colors.light.textSecondary}
-      />
-      <Text style={[pillStyles.text, active && pillStyles.textActive]}>{cat.label}</Text>
+      <Text style={[pillStyles.text, active && pillStyles.textActive]}>{label}</Text>
     </Pressable>
   );
 }
 
 const pillStyles = StyleSheet.create({
   pill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
     paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 7,
+    borderRadius: 18,
     backgroundColor: Colors.light.card,
     borderWidth: 1,
     borderColor: Colors.light.border,
   },
   pillActive: {
-    backgroundColor: Colors.light.tint,
-    borderColor: Colors.light.tint,
+    backgroundColor: Colors.light.navy,
+    borderColor: Colors.light.navy,
   },
   text: {
     fontFamily: "DMSans_500Medium",
@@ -245,18 +381,18 @@ function ServiceCard({ service }: { service: ServiceItem }) {
         {service.hsaEligible && (
           <View style={cardStyles.badge}>
             <Ionicons name="checkmark-circle" size={12} color={Colors.light.tint} />
-            <Text style={cardStyles.badgeText}>HSA Eligible</Text>
+            <Text style={cardStyles.badgeText}>HSA</Text>
           </View>
         )}
       </View>
       <Text style={cardStyles.name} numberOfLines={2}>{service.name}</Text>
       <Text style={cardStyles.provider}>{service.provider}</Text>
+      <Text style={cardStyles.subCat}>{service.subCategory}</Text>
       <View style={cardStyles.bottom}>
         <Text style={cardStyles.price}>{service.price}</Text>
         <View style={cardStyles.ratingRow}>
           <Ionicons name="star" size={12} color="#FBBF24" />
           <Text style={cardStyles.rating}>{service.rating}</Text>
-          <Text style={cardStyles.reviews}>({service.reviews})</Text>
         </View>
       </View>
     </Pressable>
@@ -271,13 +407,13 @@ const cardStyles = StyleSheet.create({
     flex: 1,
     marginHorizontal: 6,
     marginBottom: 12,
-    minHeight: 180,
+    minHeight: 190,
   },
   top: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 10,
   },
   iconWrap: {
     width: 42,
@@ -296,7 +432,7 @@ const cardStyles = StyleSheet.create({
     borderRadius: 8,
   },
   badgeText: {
-    fontFamily: "DMSans_500Medium",
+    fontFamily: "DMSans_600SemiBold",
     fontSize: 10,
     color: Colors.light.tint,
   },
@@ -304,14 +440,20 @@ const cardStyles = StyleSheet.create({
     fontFamily: "DMSans_600SemiBold",
     fontSize: 14,
     color: Colors.light.text,
-    marginBottom: 4,
+    marginBottom: 2,
     lineHeight: 20,
   },
   provider: {
     fontFamily: "DMSans_400Regular",
     fontSize: 12,
     color: Colors.light.textMuted,
-    marginBottom: 12,
+    marginBottom: 2,
+  },
+  subCat: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 11,
+    color: Colors.light.info,
+    marginBottom: 10,
   },
   bottom: {
     flexDirection: "row",
@@ -334,11 +476,6 @@ const cardStyles = StyleSheet.create({
     fontSize: 12,
     color: Colors.light.text,
   },
-  reviews: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 11,
-    color: Colors.light.textMuted,
-  },
 });
 
 function FeaturedCard({ service }: { service: ServiceItem }) {
@@ -353,17 +490,18 @@ function FeaturedCard({ service }: { service: ServiceItem }) {
       }}
     >
       <View style={[featStyles.iconWrap, { backgroundColor: service.iconBg }]}>
-        <Feather name={service.icon as any} size={24} color={service.iconColor} />
+        <Feather name={service.icon as any} size={22} color={service.iconColor} />
       </View>
       <View style={featStyles.info}>
         <Text style={featStyles.name} numberOfLines={1}>{service.name}</Text>
         <Text style={featStyles.provider}>{service.provider}</Text>
         <View style={featStyles.row}>
           <Text style={featStyles.price}>{service.price}</Text>
-          <View style={featStyles.ratingRow}>
-            <Ionicons name="star" size={11} color="#FBBF24" />
-            <Text style={featStyles.rating}>{service.rating}</Text>
-          </View>
+          {service.hsaEligible && (
+            <View style={featStyles.hsaBadge}>
+              <Text style={featStyles.hsaText}>HSA</Text>
+            </View>
+          )}
         </View>
       </View>
     </Pressable>
@@ -374,16 +512,16 @@ const featStyles = StyleSheet.create({
   card: {
     backgroundColor: Colors.light.card,
     borderRadius: 16,
-    padding: 16,
-    width: 240,
+    padding: 14,
+    width: 220,
     marginRight: 12,
     flexDirection: "row",
     gap: 12,
     alignItems: "center",
   },
   iconWrap: {
-    width: 50,
-    height: 50,
+    width: 48,
+    height: 48,
     borderRadius: 14,
     alignItems: "center",
     justifyContent: "center",
@@ -405,7 +543,7 @@ const featStyles = StyleSheet.create({
   row: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
+    gap: 8,
     marginTop: 4,
   },
   price: {
@@ -413,26 +551,35 @@ const featStyles = StyleSheet.create({
     fontSize: 14,
     color: Colors.light.tint,
   },
-  ratingRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
+  hsaBadge: {
+    backgroundColor: Colors.light.tintLight,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
   },
-  rating: {
+  hsaText: {
     fontFamily: "DMSans_600SemiBold",
-    fontSize: 12,
-    color: Colors.light.text,
+    fontSize: 10,
+    color: Colors.light.tint,
   },
 });
 
 export default function MarketplaceScreen() {
   const insets = useSafeAreaInsets();
-  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeMain, setActiveMain] = useState<MainCategory>("products");
+  const [activeSub, setActiveSub] = useState("All");
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
-  const featuredServices = services.filter((s) => s.featured);
+  const filteredByMain = services.filter((s) => s.mainCategory === activeMain);
+  const subCategories = ["All", ...Array.from(new Set(filteredByMain.map((s) => s.subCategory)))];
   const filteredServices =
-    activeCategory === "all" ? services : services.filter((s) => s.category === activeCategory);
+    activeSub === "All" ? filteredByMain : filteredByMain.filter((s) => s.subCategory === activeSub);
+  const featuredServices = filteredByMain.filter((s) => s.featured);
+
+  const handleMainChange = (cat: MainCategory) => {
+    setActiveMain(cat);
+    setActiveSub("All");
+  };
 
   const rows: ServiceItem[][] = [];
   for (let i = 0; i < filteredServices.length; i += 2) {
@@ -453,23 +600,56 @@ export default function MarketplaceScreen() {
           </Pressable>
         </View>
 
+        <View style={styles.mainTabRow}>
+          {mainCategories.map((cat) => (
+            <MainCategoryTab
+              key={cat.id}
+              cat={cat}
+              active={activeMain === cat.id}
+              onPress={() => handleMainChange(cat.id)}
+            />
+          ))}
+        </View>
+
+        {activeMain === "services" && (
+          <Pressable
+            style={({ pressed }) => [
+              styles.mapBanner,
+              { opacity: pressed ? 0.9 : 1, transform: [{ scale: pressed ? 0.99 : 1 }] },
+            ]}
+            onPress={() => {
+              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              router.push("/nearby-services");
+            }}
+          >
+            <View style={styles.mapBannerIcon}>
+              <Ionicons name="map" size={22} color={Colors.light.white} />
+            </View>
+            <View style={styles.mapBannerText}>
+              <Text style={styles.mapBannerTitle}>Find Nearby Services</Text>
+              <Text style={styles.mapBannerSub}>Explore gyms, studios & clinics near you</Text>
+            </View>
+            <Feather name="chevron-right" size={20} color={Colors.light.tint} />
+          </Pressable>
+        )}
+
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.catRow}
-          style={styles.catScroll}
+          contentContainerStyle={styles.subRow}
+          style={styles.subScroll}
         >
-          {categories.map((cat) => (
-            <CategoryPill
-              key={cat.id}
-              cat={cat}
-              active={activeCategory === cat.id}
-              onPress={() => setActiveCategory(cat.id)}
+          {subCategories.map((sub) => (
+            <SubCategoryPill
+              key={sub}
+              label={sub}
+              active={activeSub === sub}
+              onPress={() => setActiveSub(sub)}
             />
           ))}
         </ScrollView>
 
-        {activeCategory === "all" && featuredServices.length > 0 && (
+        {activeSub === "All" && featuredServices.length > 0 && (
           <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(100).duration(400) : undefined}>
             <Text style={styles.sectionLabel}>Featured</Text>
             <ScrollView
@@ -485,7 +665,9 @@ export default function MarketplaceScreen() {
         )}
 
         <Text style={styles.sectionLabel}>
-          {activeCategory === "all" ? "All Services" : categories.find((c) => c.id === activeCategory)?.label}
+          {activeSub === "All"
+            ? mainCategories.find((c) => c.id === activeMain)?.label
+            : activeSub}
         </Text>
 
         {rows.map((row, idx) => (
@@ -530,10 +712,52 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  catScroll: {
-    marginBottom: 20,
+  mainTabRow: {
+    flexDirection: "row",
+    backgroundColor: Colors.light.borderLight,
+    borderRadius: 12,
+    padding: 3,
+    marginHorizontal: 6,
+    marginBottom: 16,
   },
-  catRow: {
+  mapBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.light.card,
+    borderRadius: 14,
+    padding: 14,
+    marginHorizontal: 6,
+    marginBottom: 16,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: Colors.light.tintLight,
+  },
+  mapBannerIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: Colors.light.tint,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  mapBannerText: {
+    flex: 1,
+    gap: 2,
+  },
+  mapBannerTitle: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.text,
+  },
+  mapBannerSub: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    color: Colors.light.textMuted,
+  },
+  subScroll: {
+    marginBottom: 16,
+  },
+  subRow: {
     gap: 8,
     paddingHorizontal: 6,
   },
