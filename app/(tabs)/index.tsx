@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   Platform,
+  Image,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,6 +18,8 @@ import Animated, {
 } from "react-native-reanimated";
 import Colors from "@/constants/colors";
 import { useHSA } from "@/contexts/HSAContext";
+
+const sagaLogo = require("@/assets/images/saga-logo.png");
 
 function ContributionRing({ current, limit }: { current: number; limit: number }) {
   const percent = Math.min((current / limit) * 100, 100);
@@ -220,9 +223,12 @@ export default function HomeScreen() {
         contentInsetAdjustmentBehavior="automatic"
       >
         <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Good morning</Text>
-            <Text style={styles.name}>Alex</Text>
+          <View style={styles.headerLeft}>
+            <Image source={sagaLogo} style={styles.logo} resizeMode="contain" />
+            <View>
+              <Text style={styles.greeting}>Good morning</Text>
+              <Text style={styles.name}>Alex</Text>
+            </View>
           </View>
           <Pressable style={styles.notifBtn}>
             <Ionicons name="notifications-outline" size={22} color={Colors.light.text} />
@@ -325,6 +331,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
     paddingTop: 8,
+  },
+  headerLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  logo: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
   },
   greeting: {
     fontFamily: "DMSans_400Regular",
