@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   StyleSheet,
   Text,
@@ -7,6 +7,7 @@ import {
   Pressable,
   Platform,
   Image,
+  Dimensions,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -210,6 +211,188 @@ const txStyles = StyleSheet.create({
   },
 });
 
+const performanceData = {
+  "1W": { points: [12200, 12280, 12250, 12350, 12400, 12480, 12550], change: 2.87, changeAmount: 350 },
+  "1M": { points: [11800, 11950, 12000, 11900, 12100, 12300, 12200, 12350, 12550], change: 6.36, changeAmount: 750 },
+  "3M": { points: [11200, 11400, 11100, 11600, 11800, 12000, 11700, 12100, 12300, 12550], change: 12.05, changeAmount: 1350 },
+  "6M": { points: [10500, 10800, 10600, 11000, 11300, 10900, 11500, 11800, 12100, 12300, 12550], change: 19.52, changeAmount: 2050 },
+  "1Y": { points: [9500, 9800, 10200, 9900, 10500, 10800, 11000, 10600, 11200, 11600, 12000, 12300, 12550], change: 32.11, changeAmount: 3050 },
+  "ALL": { points: [5000, 5500, 6200, 5800, 6500, 7200, 7800, 7400, 8200, 9000, 9500, 10200, 10800, 11200, 11800, 12550], change: 151.0, changeAmount: 7550 },
+};
+
+type Period = keyof typeof performanceData;
+const periods: Period[] = ["1W", "1M", "3M", "6M", "1Y", "ALL"];
+
+function PerformanceChart({ balance }: { balance: number }) {
+  const [activePeriod, setActivePeriod] = useState<Period>("1M");
+  const data = performanceData[activePeriod];
+  const points = data.points;
+  const min = Math.min(...points);
+  const max = Math.max(...points);
+  const range = max - min || 1;
+  const chartWidth = Dimensions.get("window").width - 80;
+  const chartHeight = 120;
+  const isPositive = data.change >= 0;
+  const lineColor = isPositive ? Colors.light.success : Colors.light.danger;
+
+  const getY = (val: number) => chartHeight - ((val - min) / range) * (chartHeight - 16) - 8;
+  const getX = (i: number) => (i / (points.length - 1)) * chartWidth;
+
+  return (
+    <View style={chartStyles.container}>
+      <View style={chartStyles.header}>
+        <Text style={chartStyles.title}>Investment Performance</Text>
+        <View style={chartStyles.changeBadge}>
+          <Feather name={isPositive ? "trending-up" : "trending-down"} size={14} color={lineColor} />
+          <Text style={[chartStyles.changeText, { color: lineColor }]}>
+            {isPositive ? "+" : ""}{data.change.toFixed(2)}%
+          </Text>
+        </View>
+      </View>
+      <Text style={chartStyles.changeAmount}>
+        {isPositive ? "+" : "-"}${Math.abs(data.changeAmount).toLocaleString()} this period
+      </Text>
+
+      <View style={[chartStyles.chartArea, { height: chartHeight }]}>
+        {[0, 1, 2, 3].map((i) => (
+          <View key={i} style={[chartStyles.gridLine, { top: (chartHeight / 3) * i }]} />
+        ))}
+        {points.map((val, i) => {
+          if (i === 0) return null;
+          const x1 = getX(i - 1);
+          const y1 = getY(points[i - 1]);
+          const x2 = getX(i);
+          const y2 = getY(val);
+          const dx = x2 - x1;
+          const dy = y2 - y1;
+          const length = Math.sqrt(dx * dx + dy * dy);
+          const angle = Math.atan2(dy, dx) * (180 / Math.PI);
+          return (
+            <View
+              key={i}
+              style={{
+                position: "absolute" as const,
+                left: x1,
+                top: y1,
+                width: length,
+                height: 2.5,
+                backgroundColor: lineColor,
+                borderRadius: 1,
+                transform: [{ rotate: `${angle}deg` }],
+                transformOrigin: "left center",
+              }}
+            />
+          );
+        })}
+        {points.map((val, i) => (
+          <View
+            key={`dot-${i}`}
+            style={{
+              position: "absolute" as const,
+              left: getX(i) - (i === points.length - 1 ? 4 : 2),
+              top: getY(val) - (i === points.length - 1 ? 4 : 2),
+              width: i === points.length - 1 ? 8 : 4,
+              height: i === points.length - 1 ? 8 : 4,
+              borderRadius: i === points.length - 1 ? 4 : 2,
+              backgroundColor: i === points.length - 1 ? lineColor : "transparent",
+              borderWidth: i === points.length - 1 ? 2 : 0,
+              borderColor: Colors.light.card,
+            }}
+          />
+        ))}
+      </View>
+
+      <View style={chartStyles.periods}>
+        {periods.map((p) => (
+          <Pressable
+            key={p}
+            style={[chartStyles.periodBtn, activePeriod === p && chartStyles.periodBtnActive]}
+            onPress={() => {
+              if (Platform.OS !== "web") Haptics.selectionAsync();
+              setActivePeriod(p);
+            }}
+          >
+            <Text style={[chartStyles.periodText, activePeriod === p && chartStyles.periodTextActive]}>{p}</Text>
+          </Pressable>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+const chartStyles = StyleSheet.create({
+  container: {
+    backgroundColor: Colors.light.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  title: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.text,
+  },
+  changeBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.light.successLight,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  changeText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 13,
+  },
+  changeAmount: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    marginBottom: 16,
+  },
+  chartArea: {
+    width: "100%",
+    marginBottom: 16,
+    overflow: "hidden",
+  },
+  gridLine: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    height: 1,
+    backgroundColor: Colors.light.borderLight,
+  },
+  periods: {
+    flexDirection: "row",
+    gap: 6,
+    justifyContent: "center",
+  },
+  periodBtn: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 10,
+    backgroundColor: Colors.light.background,
+  },
+  periodBtnActive: {
+    backgroundColor: Colors.light.tint,
+  },
+  periodText: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+  },
+  periodTextActive: {
+    color: Colors.light.white,
+  },
+});
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions } = useHSA();
@@ -261,6 +444,10 @@ export default function HomeScreen() {
         </Animated.View>
 
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(200).duration(500) : undefined}>
+          <PerformanceChart balance={balance} />
+        </Animated.View>
+
+        <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(300).duration(500) : undefined}>
           <View style={styles.quickActions}>
             <QuickAction
               icon="plus-circle"
@@ -293,11 +480,11 @@ export default function HomeScreen() {
           </View>
         </Animated.View>
 
-        <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(300).duration(500) : undefined}>
+        <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(400).duration(500) : undefined}>
           <ContributionRing current={contributionYTD} limit={contributionLimit} />
         </Animated.View>
 
-        <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(400).duration(500) : undefined}>
+        <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(500).duration(500) : undefined}>
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Recent Activity</Text>
