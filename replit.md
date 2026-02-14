@@ -25,7 +25,7 @@ A modern HSA (Health Savings Account) custodian app with Acorns-like auto-invest
 - Nearby services map with react-native-maps (native) and web fallback
 - Investment portfolio with auto-invest, first dollar investing, round-up settings, pie chart allocation
 - Account management with receipt tracking, reimbursement submission
-- Onboarding flow with risk tolerance, contribution schedule, smart features
+- Comprehensive 13-step onboarding: personal info, disclosures & consent, approval, bank connection (Plaid-style), contribution setup, funds pending/available, 5-question risk profile, portfolio recommendation slider, auto-invest setup
 
 ## User Preferences
 - Company name: Saga Health
