@@ -184,13 +184,15 @@ export default function OnboardingScreen() {
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Let's get started</Text>
             <Text style={styles.stepSubtitle}>Tell us about yourself to set up your HSA</Text>
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>First Name</Text>
-              <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder="First name" placeholderTextColor={Colors.light.textMuted} />
-            </View>
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Last Name</Text>
-              <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="Last name" placeholderTextColor={Colors.light.textMuted} />
+            <View style={styles.nameRow}>
+              <View style={styles.nameField}>
+                <Text style={styles.inputLabel}>First Name</Text>
+                <TextInput style={styles.input} value={firstName} onChangeText={setFirstName} placeholder="First name" placeholderTextColor={Colors.light.textMuted} />
+              </View>
+              <View style={styles.nameField}>
+                <Text style={styles.inputLabel}>Last Name</Text>
+                <TextInput style={styles.input} value={lastName} onChangeText={setLastName} placeholder="Last name" placeholderTextColor={Colors.light.textMuted} />
+              </View>
             </View>
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Date of Birth</Text>
@@ -709,6 +711,14 @@ const styles = StyleSheet.create({
     color: Colors.light.textSecondary,
     lineHeight: 22,
     marginBottom: 28,
+  },
+  nameRow: {
+    flexDirection: "row" as const,
+    gap: 12,
+    marginBottom: 16,
+  },
+  nameField: {
+    flex: 1,
   },
   formGroup: {
     marginBottom: 16,
