@@ -279,7 +279,8 @@ export default function OnboardingScreen() {
               >
                 <Ionicons name="person" size={32} color={planType === "individual" ? Colors.light.tint : Colors.light.textSecondary} />
                 <Text style={[styles.planLabel, planType === "individual" && styles.planLabelActive]}>Individual</Text>
-                <Text style={styles.planLimit}>$4,400/year</Text>
+                <Text style={styles.planLimit}>{catchUp > 0 ? "$5,400" : "$4,400"}/year</Text>
+                {catchUp > 0 && <Text style={styles.planCatchUp}>Includes $1,000 catch-up</Text>}
               </Pressable>
               <Pressable
                 style={[styles.planCard, planType === "family" && styles.planCardActive]}
@@ -290,9 +291,16 @@ export default function OnboardingScreen() {
               >
                 <Ionicons name="people" size={32} color={planType === "family" ? Colors.light.tint : Colors.light.textSecondary} />
                 <Text style={[styles.planLabel, planType === "family" && styles.planLabelActive]}>Family</Text>
-                <Text style={styles.planLimit}>$8,750/year</Text>
+                <Text style={styles.planLimit}>{catchUp > 0 ? "$9,750" : "$8,750"}/year</Text>
+                {catchUp > 0 && <Text style={styles.planCatchUp}>Includes $1,000 catch-up</Text>}
               </Pressable>
             </View>
+            {catchUp > 0 && (
+              <View style={styles.catchUpBanner}>
+                <Ionicons name="information-circle" size={20} color={Colors.light.info} />
+                <Text style={styles.catchUpBannerText}>Since you're 55 or older, you qualify for an additional $1,000 catch-up contribution.</Text>
+              </View>
+            )}
             <View style={[styles.disclosureBox, { height: 180, marginTop: 24 }]}>
               <ScrollView style={styles.disclosureScroll} nestedScrollEnabled>
                 <Text style={styles.disclosureText}>
@@ -1002,6 +1010,28 @@ const styles = StyleSheet.create({
     color: Colors.light.tint,
     textAlign: "center",
     marginTop: 10,
+  },
+  planCatchUp: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 11,
+    color: Colors.light.info,
+    marginTop: 2,
+  },
+  catchUpBanner: {
+    flexDirection: "row" as const,
+    alignItems: "flex-start" as const,
+    gap: 10,
+    backgroundColor: Colors.light.infoLight,
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 16,
+  },
+  catchUpBannerText: {
+    flex: 1,
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.info,
+    lineHeight: 18,
   },
   questionSection: {
     marginBottom: 28,
