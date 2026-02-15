@@ -660,6 +660,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     flex: 1,
+    paddingLeft: 4,
   },
   headerInfo: {
     flex: 1,
@@ -676,7 +677,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontFamily: "DMSans_700Bold",
-    fontSize: 22,
+    fontSize: 28,
     color: Colors.light.text,
   },
   tierBadge: {
