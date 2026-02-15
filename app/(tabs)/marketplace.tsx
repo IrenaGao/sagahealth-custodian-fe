@@ -13,6 +13,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { router } from "expo-router";
 import Colors from "@/constants/colors";
+import { useHSA, getLoyaltyTier } from "@/contexts/HSAContext";
 
 type MainCategory = "products" | "apps" | "services";
 
@@ -566,6 +567,8 @@ const featStyles = StyleSheet.create({
 
 export default function MarketplaceScreen() {
   const insets = useSafeAreaInsets();
+  const { balance, loyaltyPoints } = useHSA();
+  const loyalty = getLoyaltyTier(balance);
   const [activeMain, setActiveMain] = useState<MainCategory>("products");
   const [activeSub, setActiveSub] = useState("All");
   const webTopInset = Platform.OS === "web" ? 67 : 0;
@@ -598,6 +601,31 @@ export default function MarketplaceScreen() {
           <Pressable style={styles.searchBtn}>
             <Feather name="search" size={20} color={Colors.light.text} />
           </Pressable>
+        </View>
+
+        <View style={styles.loyaltyBanner}>
+          <View style={styles.loyaltyLeft}>
+            {loyalty.current && (
+              <View style={[styles.loyaltyIconWrap, { backgroundColor: loyalty.current.color + "18" }]}>
+                <Ionicons
+                  name={loyalty.current.name === "Diamond" ? "diamond" : loyalty.current.name === "Gold" ? "star" : loyalty.current.name === "Platinum" ? "ribbon" : "shield-checkmark"}
+                  size={18}
+                  color={loyalty.current.color}
+                />
+              </View>
+            )}
+            <View>
+              <Text style={[styles.loyaltyTierName, { color: loyalty.current?.color || Colors.light.text }]}>
+                {loyalty.current?.name || "Member"}{loyalty.current ? ` · ${loyalty.current.pointsMultiplier}x` : ""}
+              </Text>
+              <Text style={styles.loyaltySubtext}>Earn points on every purchase</Text>
+            </View>
+          </View>
+          <View style={styles.loyaltyPointsWrap}>
+            <Ionicons name="star" size={14} color="#F0D68A" />
+            <Text style={styles.loyaltyPointsNum}>{loyaltyPoints.toLocaleString()}</Text>
+            <Text style={styles.loyaltyPointsLabel}>pts</Text>
+          </View>
         </View>
 
         <View style={styles.mainTabRow}>
@@ -711,6 +739,59 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.card,
     alignItems: "center",
     justifyContent: "center",
+  },
+  loyaltyBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.light.card,
+    borderRadius: 14,
+    padding: 14,
+    marginHorizontal: 6,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+  },
+  loyaltyLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  loyaltyIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  loyaltyTierName: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 14,
+  },
+  loyaltySubtext: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 11,
+    color: Colors.light.textMuted,
+    marginTop: 1,
+  },
+  loyaltyPointsWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    backgroundColor: Colors.light.navy,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  loyaltyPointsNum: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 14,
+    color: "#F0D68A",
+  },
+  loyaltyPointsLabel: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.5)",
   },
   mainTabRow: {
     flexDirection: "row",

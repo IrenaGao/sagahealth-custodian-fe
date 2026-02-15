@@ -207,9 +207,14 @@ export function HSAProvider({ children }: { children: ReactNode }) {
   const loyaltyPoints = useMemo(() => {
     const loyalty = getLoyaltyTier(balance);
     const multiplier = loyalty.current?.pointsMultiplier ?? 1;
-    const basePoints = Math.round(contributionYTD * 0.5);
-    return Math.round(basePoints * multiplier);
-  }, [balance, contributionYTD]);
+    const purchaseTxs = transactions.filter((t) => t.type === "purchase");
+    const purchaseTotal = purchaseTxs.reduce((sum, t) => sum + Math.abs(t.amount), 0);
+    const purchasePoints = Math.round(purchaseTotal * 2);
+    let taskPoints = 0;
+    if (contributionYTD >= contributionLimit) taskPoints += 100;
+    taskPoints += 150;
+    return Math.round((purchasePoints + taskPoints) * multiplier);
+  }, [balance, contributionYTD, contributionLimit, transactions]);
 
   const value = useMemo(
     () => ({
