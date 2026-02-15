@@ -6,6 +6,7 @@ import {
   ScrollView,
   Pressable,
   Platform,
+  TextInput,
 } from "react-native";
 import { Ionicons, Feather, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -571,7 +572,20 @@ export default function MarketplaceScreen() {
   const loyalty = getLoyaltyTier(balance);
   const [activeMain, setActiveMain] = useState<MainCategory>("products");
   const [activeSub, setActiveSub] = useState("All");
+  const [searchQuery, setSearchQuery] = useState("");
   const webTopInset = Platform.OS === "web" ? 67 : 0;
+
+  const isSearching = searchQuery.trim().length > 0;
+  const query = searchQuery.trim().toLowerCase();
+
+  const searchResults = isSearching
+    ? services.filter(
+        (s) =>
+          s.name.toLowerCase().includes(query) ||
+          s.provider.toLowerCase().includes(query) ||
+          s.subCategory.toLowerCase().includes(query)
+      )
+    : [];
 
   const filteredByMain = services.filter((s) => s.mainCategory === activeMain);
   const subCategories = ["All", ...Array.from(new Set(filteredByMain.map((s) => s.subCategory)))];
@@ -621,6 +635,45 @@ export default function MarketplaceScreen() {
           </View>
         </View>
 
+        <View style={styles.searchBar}>
+          <Feather name="search" size={16} color={Colors.light.textMuted} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products, apps & services..."
+            placeholderTextColor={Colors.light.textMuted}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+          />
+          {isSearching && (
+            <Pressable onPress={() => setSearchQuery("")}>
+              <Ionicons name="close-circle" size={18} color={Colors.light.textMuted} />
+            </Pressable>
+          )}
+        </View>
+
+        {isSearching ? (
+          <>
+            <Text style={styles.sectionLabel}>
+              {searchResults.length} result{searchResults.length !== 1 ? "s" : ""} for "{searchQuery.trim()}"
+            </Text>
+            {(() => {
+              const sRows: ServiceItem[][] = [];
+              for (let i = 0; i < searchResults.length; i += 2) {
+                sRows.push(searchResults.slice(i, i + 2));
+              }
+              return sRows.map((row, idx) => (
+                <View key={idx} style={styles.gridRow}>
+                  {row.map((service) => (
+                    <ServiceCard key={service.id} service={service} />
+                  ))}
+                  {row.length === 1 && <View style={{ flex: 1, marginHorizontal: 6 }} />}
+                </View>
+              ));
+            })()}
+          </>
+        ) : (
+        <>
         <View style={styles.mainTabRow}>
           {mainCategories.map((cat) => (
             <MainCategoryTab
@@ -699,6 +752,8 @@ export default function MarketplaceScreen() {
             {row.length === 1 && <View style={{ flex: 1, marginHorizontal: 6 }} />}
           </View>
         ))}
+        </>
+        )}
       </ScrollView>
     </View>
   );
@@ -724,6 +779,24 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_700Bold",
     fontSize: 26,
     color: Colors.light.text,
+  },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.light.card,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginHorizontal: 6,
+    marginBottom: 16,
+    gap: 10,
+  },
+  searchInput: {
+    flex: 1,
+    fontFamily: "DMSans_400Regular",
+    fontSize: 14,
+    color: Colors.light.text,
+    padding: 0,
   },
   searchBtn: {
     width: 40,
