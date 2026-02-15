@@ -546,43 +546,43 @@ export default function HomeScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <View style={styles.headerInfo}>
+            <View style={styles.nameRow}>
+              <Text style={styles.name}>Alex</Text>
+              {loyalty.current && (
+                <View style={[styles.tierBadge, { backgroundColor: loyalty.current.color + "14", borderColor: loyalty.current.color + "30" }]}>
+                  <Ionicons
+                    name={loyalty.current.name === "Diamond" ? "diamond" : loyalty.current.name === "Gold" ? "star" : loyalty.current.name === "Platinum" ? "ribbon" : "shield-checkmark"}
+                    size={11}
+                    color={loyalty.current.color}
+                  />
+                  <Text style={[styles.tierText, { color: loyalty.current.color }]}>
+                    {loyalty.current.name}
+                  </Text>
+                </View>
+              )}
+            </View>
+            {greeting ? (
+              <Text style={styles.greetingText}>{greeting}</Text>
+            ) : null}
+          </View>
+        </View>
+        <View style={styles.headerPointsBox}>
+          <View style={styles.headerPointsRow}>
+            <Ionicons name="star" size={16} color="#F0D68A" />
+            <Text style={styles.headerPointsNum}>{loyaltyPoints.toLocaleString()}</Text>
+            <Text style={styles.headerPointsLabel}>pts</Text>
+          </View>
+        </View>
+      </View>
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 : 100 }]}
         contentInsetAdjustmentBehavior="automatic"
       >
-        <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <View style={styles.headerInfo}>
-              <View style={styles.nameRow}>
-                <Text style={styles.name}>Alex</Text>
-                {loyalty.current && (
-                  <View style={[styles.tierBadge, { backgroundColor: loyalty.current.color + "14", borderColor: loyalty.current.color + "30" }]}>
-                    <Ionicons
-                      name={loyalty.current.name === "Diamond" ? "diamond" : loyalty.current.name === "Gold" ? "star" : loyalty.current.name === "Platinum" ? "ribbon" : "shield-checkmark"}
-                      size={11}
-                      color={loyalty.current.color}
-                    />
-                    <Text style={[styles.tierText, { color: loyalty.current.color }]}>
-                      {loyalty.current.name}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              {greeting ? (
-                <Text style={styles.greetingText}>{greeting}</Text>
-              ) : null}
-            </View>
-          </View>
-          <View style={styles.headerPointsBox}>
-            <View style={styles.headerPointsRow}>
-              <Ionicons name="star" size={16} color="#F0D68A" />
-              <Text style={styles.headerPointsNum}>{loyaltyPoints.toLocaleString()}</Text>
-              <Text style={styles.headerPointsLabel}>pts</Text>
-            </View>
-          </View>
-        </View>
-
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(100).duration(500) : undefined}>
           <LinearGradient
             colors={[Colors.light.navy, Colors.light.navyLight]}
@@ -698,8 +698,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    paddingBottom: 12,
     paddingTop: 8,
+    backgroundColor: Colors.light.background,
+    paddingHorizontal: 20,
   },
   headerLeft: {
     flexDirection: "row",
