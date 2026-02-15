@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -9,6 +9,7 @@ import {
   Image,
   Dimensions,
 } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop, Circle, Line, Text as SvgText } from "react-native-svg";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -498,11 +499,49 @@ const chartStyles = StyleSheet.create({
   },
 });
 
+function useGreeting() {
+  const [greeting, setGreeting] = useState("");
+  const hasChecked = useRef(false);
+
+  useEffect(() => {
+    if (hasChecked.current) return;
+    hasChecked.current = true;
+
+    (async () => {
+      const LAST_OPEN_KEY = "saga_last_open";
+      const now = Date.now();
+      const lastOpen = await AsyncStorage.getItem(LAST_OPEN_KEY);
+      await AsyncStorage.setItem(LAST_OPEN_KEY, now.toString());
+
+      if (lastOpen) {
+        const diff = now - parseInt(lastOpen, 10);
+        const twoDaysMs = 2 * 24 * 60 * 60 * 1000;
+        if (diff > twoDaysMs) {
+          setGreeting("Welcome back");
+          return;
+        }
+      }
+
+      const hour = new Date().getHours();
+      if (hour < 12) {
+        setGreeting("Good morning");
+      } else if (hour < 18) {
+        setGreeting("Good afternoon");
+      } else {
+        setGreeting("Good evening");
+      }
+    })();
+  }, []);
+
+  return greeting;
+}
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, loyaltyPoints } = useHSA();
   const loyalty = getLoyaltyTier(balance);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const greeting = useGreeting();
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
@@ -529,12 +568,18 @@ export default function HomeScreen() {
                   </View>
                 )}
               </View>
-              <Text style={styles.memberSince}>Member since 2024</Text>
+              {greeting ? (
+                <Text style={styles.greetingText}>{greeting}</Text>
+              ) : (
+                <Text style={styles.memberSince}>Member since 2024</Text>
+              )}
             </View>
           </View>
-          <Pressable style={styles.notifBtn}>
-            <Ionicons name="notifications-outline" size={22} color={Colors.light.text} />
-          </Pressable>
+          <View style={styles.headerPointsBox}>
+            <Ionicons name="star" size={14} color="#F0D68A" />
+            <Text style={styles.headerPointsNum}>{loyaltyPoints.toLocaleString()}</Text>
+            <Text style={styles.headerPointsLabel}>pts</Text>
+          </View>
         </View>
 
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(100).duration(500) : undefined}>
@@ -707,13 +752,30 @@ const styles = StyleSheet.create({
     color: Colors.light.textMuted,
     marginTop: 2,
   },
-  notifBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: Colors.light.card,
-    alignItems: "center",
-    justifyContent: "center",
+  greetingText: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.textMuted,
+    marginTop: 2,
+  },
+  headerPointsBox: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    backgroundColor: Colors.light.navy,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 14,
+  },
+  headerPointsNum: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 14,
+    color: "#F0D68A",
+  },
+  headerPointsLabel: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.5)",
   },
   balanceCard: {
     borderRadius: 20,
