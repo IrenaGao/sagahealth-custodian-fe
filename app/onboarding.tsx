@@ -43,6 +43,27 @@ const portfolios = [
   { label: "Aggressive", stocks: 90, bonds: 8, cash: 2 },
 ];
 
+function formatDob(text: string): string {
+  const digits = text.replace(/\D/g, "").slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+function formatSsn(text: string): string {
+  const digits = text.replace(/\D/g, "").slice(0, 9);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 5) return `${digits.slice(0, 3)}-${digits.slice(3)}`;
+  return `${digits.slice(0, 3)}-${digits.slice(3, 5)}-${digits.slice(5)}`;
+}
+
+function formatPhone(text: string): string {
+  const digits = text.replace(/\D/g, "").slice(0, 10);
+  if (digits.length <= 3) return digits.length > 0 ? `(${digits}` : "";
+  if (digits.length <= 6) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const { completeOnboarding, toggleAutoInvest } = useHSA();
@@ -223,11 +244,11 @@ export default function OnboardingScreen() {
             </View>
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Date of Birth</Text>
-              <TextInput style={styles.input} value={dob} onChangeText={setDob} placeholder="MM/DD/YYYY" placeholderTextColor={Colors.light.textMuted} keyboardType="number-pad" />
+              <TextInput style={styles.input} value={dob} onChangeText={(t) => setDob(formatDob(t))} placeholder="MM/DD/YYYY" placeholderTextColor={Colors.light.textMuted} keyboardType="number-pad" maxLength={10} />
             </View>
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Social Security Number</Text>
-              <TextInput style={styles.input} value={ssn} onChangeText={setSsn} placeholder="XXX-XX-XXXX" placeholderTextColor={Colors.light.textMuted} secureTextEntry maxLength={11} keyboardType="number-pad" />
+              <TextInput style={styles.input} value={ssn} onChangeText={(t) => setSsn(formatSsn(t))} placeholder="XXX-XX-XXXX" placeholderTextColor={Colors.light.textMuted} secureTextEntry maxLength={11} keyboardType="number-pad" />
             </View>
           </Animated.View>
         );
@@ -243,7 +264,7 @@ export default function OnboardingScreen() {
             </View>
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Phone Number</Text>
-              <TextInput style={styles.input} value={phone} onChangeText={setPhone} placeholder="(555) 555-5555" placeholderTextColor={Colors.light.textMuted} keyboardType="phone-pad" />
+              <TextInput style={styles.input} value={phone} onChangeText={(t) => setPhone(formatPhone(t))} placeholder="(555) 555-5555" placeholderTextColor={Colors.light.textMuted} keyboardType="phone-pad" maxLength={14} />
             </View>
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Street Address</Text>
