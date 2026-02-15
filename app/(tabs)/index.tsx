@@ -570,9 +570,7 @@ export default function HomeScreen() {
               </View>
               {greeting ? (
                 <Text style={styles.greetingText}>{greeting}</Text>
-              ) : (
-                <Text style={styles.memberSince}>Member since 2024</Text>
-              )}
+              ) : null}
             </View>
           </View>
           <View style={styles.headerPointsBox}>
@@ -581,7 +579,6 @@ export default function HomeScreen() {
               <Text style={styles.headerPointsNum}>{loyaltyPoints.toLocaleString()}</Text>
               <Text style={styles.headerPointsLabel}>pts</Text>
             </View>
-            <Text style={styles.headerMemberSince}>Member since 2024</Text>
           </View>
         </View>
 
