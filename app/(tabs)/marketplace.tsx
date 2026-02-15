@@ -605,11 +605,7 @@ export default function MarketplaceScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 : 100 }]}
-        contentInsetAdjustmentBehavior="automatic"
-      >
+      <View style={styles.stickyHeader}>
         <View style={styles.loyaltyBanner}>
           <View style={styles.loyaltyLeft}>
             {loyalty.current && (
@@ -651,7 +647,13 @@ export default function MarketplaceScreen() {
             </Pressable>
           )}
         </View>
+      </View>
 
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 : 100 }]}
+        contentInsetAdjustmentBehavior="automatic"
+      >
         {isSearching ? (
           <>
             <Text style={styles.sectionLabel}>
@@ -764,6 +766,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.light.background,
   },
+  stickyHeader: {
+    backgroundColor: Colors.light.background,
+    paddingHorizontal: 14,
+    paddingTop: 8,
+  },
   scrollContent: {
     paddingHorizontal: 14,
   },
@@ -787,8 +794,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    marginHorizontal: 6,
-    marginBottom: 16,
+    marginBottom: 12,
     gap: 10,
   },
   searchInput: {
@@ -813,8 +819,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.card,
     borderRadius: 14,
     padding: 14,
-    marginHorizontal: 6,
-    marginBottom: 16,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: Colors.light.borderLight,
   },
