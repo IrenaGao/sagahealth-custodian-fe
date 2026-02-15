@@ -58,7 +58,7 @@ const HSAContext = createContext<HSAContextValue | null>(null);
 const STORAGE_KEY = "saga_health_data";
 
 const defaultHoldings: InvestmentHolding[] = [
-  { id: "1", name: "Stocks", ticker: "Stocks", allocation: 60, balance: 5130, returnPercent: 12.8, color: "#2D3E50" },
+  { id: "1", name: "Stocks", ticker: "Stocks", allocation: 60, balance: 5130, returnPercent: 12.8, color: "#2E5E3F" },
   { id: "2", name: "Bonds", ticker: "Bonds", allocation: 25, balance: 2137.5, returnPercent: 3.8, color: "#4A8BA8" },
   { id: "3", name: "Cash", ticker: "Cash", allocation: 15, balance: 1282.5, returnPercent: 0.5, color: "#D4A574" },
 ];

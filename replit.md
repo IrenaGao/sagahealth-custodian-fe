@@ -8,7 +8,7 @@ A modern HSA (Health Savings Account) custodian app with Acorns-like auto-invest
 - **Backend**: Express.js (port 5000) serving APIs and landing page
 - **State Management**: React Context (HSAContext) + AsyncStorage for persistence
 - **Styling**: React Native StyleSheet with DM Sans custom font
-- **Design**: Dark navy/sage theme (#2D3E50) with light mint background (#F2F7EC), warm accents
+- **Design**: Forest green theme (#2E5E3F) with sage green background (#D5E5D0), warm accents
 
 ## Project Structure
 - `app/(tabs)/` - Four tab screens: Home, Marketplace, Investments, Accounts
@@ -31,5 +31,5 @@ A modern HSA (Health Savings Account) custodian app with Acorns-like auto-invest
 - Company name: Saga Health
 - Modern fintech aesthetic inspired by Acorns
 - DM Sans font family
-- Dark navy/sage primary color (#2D3E50) with light mint background
+- Forest green primary color (#2E5E3F) with sage green background (#D5E5D0)
 - Logo: Sail/ship icon with "SAGA" text
