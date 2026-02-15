@@ -589,14 +589,7 @@ export default function HomeScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.balanceCard}
           >
-            <View style={styles.balanceTopRow}>
-              <Text style={styles.balanceLabel}>Total Balance</Text>
-              <View style={styles.pointsBox}>
-                <Ionicons name="star" size={12} color="#F0D68A" />
-                <Text style={styles.pointsValue}>{loyaltyPoints.toLocaleString()}</Text>
-                <Text style={styles.pointsLabel}>pts</Text>
-              </View>
-            </View>
+            <Text style={styles.balanceLabel}>Total Balance</Text>
             <Text style={styles.balanceAmount}>${balance.toLocaleString()}</Text>
             <View style={styles.balanceRow}>
               <View style={styles.balanceSplit}>
