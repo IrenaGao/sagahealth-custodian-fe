@@ -550,8 +550,6 @@ export default function InvestmentsScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 : 100 }]}
         contentInsetAdjustmentBehavior="automatic"
       >
-        <Text style={styles.title}>Investments</Text>
-
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(100).duration(500) : undefined}>
           <LinearGradient
             colors={[Colors.light.navy, Colors.light.navyLight]}
