@@ -213,7 +213,8 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     let taskPoints = 0;
     if (contributionYTD >= contributionLimit) taskPoints += 100;
     taskPoints += 150;
-    return Math.round((purchasePoints + taskPoints) * multiplier);
+    const historicalPoints = 14013;
+    return Math.round((purchasePoints + taskPoints + historicalPoints) * multiplier);
   }, [balance, contributionYTD, contributionLimit, transactions]);
 
   const value = useMemo(
