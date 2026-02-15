@@ -514,9 +514,23 @@ export default function HomeScreen() {
         <View style={styles.header}>
           <View style={styles.headerLeft}>
             <Image source={sagaLogo} style={styles.logo} resizeMode="contain" />
-            <View>
-              <Text style={styles.greeting}>Good morning</Text>
-              <Text style={styles.name}>Alex</Text>
+            <View style={styles.headerInfo}>
+              <View style={styles.nameRow}>
+                <Text style={styles.name}>Alex</Text>
+                {loyalty.current && (
+                  <View style={[styles.tierBadge, { backgroundColor: loyalty.current.color + "14", borderColor: loyalty.current.color + "30" }]}>
+                    <Ionicons
+                      name={loyalty.current.name === "Diamond" ? "diamond" : loyalty.current.name === "Gold" ? "star" : loyalty.current.name === "Platinum" ? "ribbon" : "shield-checkmark"}
+                      size={11}
+                      color={loyalty.current.color}
+                    />
+                    <Text style={[styles.tierText, { color: loyalty.current.color }]}>
+                      {loyalty.current.name}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.memberSince}>Member since 2024</Text>
             </View>
           </View>
           <Pressable style={styles.notifBtn}>
@@ -531,21 +545,7 @@ export default function HomeScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.balanceCard}
           >
-            <View style={styles.balanceLabelRow}>
-              <Text style={styles.balanceLabel}>Total Balance</Text>
-              {loyalty.current && (
-                <View style={[styles.tierBadge, { backgroundColor: loyalty.current.color + "30" }]}>
-                  <Ionicons
-                    name={loyalty.current.name === "Diamond" ? "diamond" : loyalty.current.name === "Gold" ? "star" : loyalty.current.name === "Platinum" ? "ribbon" : "shield-checkmark"}
-                    size={12}
-                    color={loyalty.current.name === "Diamond" ? "#8B2FC9" : loyalty.current.name === "Gold" ? "#C5A236" : "#FFFFFF"}
-                  />
-                  <Text style={[styles.tierText, { color: loyalty.current.name === "Diamond" ? "#D4A5FF" : loyalty.current.name === "Gold" ? "#F0D68A" : "rgba(255,255,255,0.9)" }]}>
-                    {loyalty.current.name}
-                  </Text>
-                </View>
-              )}
-            </View>
+            <Text style={styles.balanceLabel}>Total Balance</Text>
             <Text style={styles.balanceAmount}>${balance.toLocaleString()}</Text>
             <View style={styles.balanceRow}>
               <View style={styles.balanceSplit}>
@@ -660,21 +660,44 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
+    flex: 1,
+  },
+  headerInfo: {
+    flex: 1,
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
   },
   logo: {
     width: 38,
     height: 38,
     borderRadius: 10,
   },
-  greeting: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 14,
-    color: Colors.light.textMuted,
-  },
   name: {
     fontFamily: "DMSans_700Bold",
-    fontSize: 26,
+    fontSize: 22,
     color: Colors.light.text,
+  },
+  tierBadge: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  tierText: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 11,
+    letterSpacing: 0.3,
+  },
+  memberSince: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    color: Colors.light.textMuted,
     marginTop: 2,
   },
   notifBtn: {
@@ -689,23 +712,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 24,
     marginBottom: 20,
-  },
-  balanceLabelRow: {
-    flexDirection: "row" as const,
-    justifyContent: "space-between" as const,
-    alignItems: "center" as const,
-  },
-  tierBadge: {
-    flexDirection: "row" as const,
-    alignItems: "center" as const,
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  tierText: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 11,
   },
   balanceLabel: {
     fontFamily: "DMSans_500Medium",
