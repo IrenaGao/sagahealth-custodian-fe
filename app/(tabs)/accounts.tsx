@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Colors from "@/constants/colors";
-import { useHSA, Receipt } from "@/contexts/HSAContext";
+import { useHSA, Receipt, getLoyaltyTier, loyaltyTiers, LoyaltyTier } from "@/contexts/HSAContext";
 
 function SegmentedControl({
   tabs,
@@ -304,6 +304,229 @@ const settStyles = StyleSheet.create({
   },
 });
 
+function getTierIcon(name: string): string {
+  if (name === "Diamond") return "diamond";
+  if (name === "Gold") return "star";
+  if (name === "Platinum") return "ribbon";
+  return "shield-checkmark";
+}
+
+function LoyaltySection({ balance }: { balance: number }) {
+  const loyalty = getLoyaltyTier(balance);
+
+  return (
+    <Animated.View entering={Platform.OS !== "web" ? FadeInDown.duration(400) : undefined}>
+      <View style={loyaltyStyles.currentCard}>
+        <View style={loyaltyStyles.currentHeader}>
+          <View style={[loyaltyStyles.currentIconWrap, { backgroundColor: loyalty.current ? loyalty.current.color + "20" : Colors.light.tintLight }]}>
+            <Ionicons
+              name={loyalty.current ? getTierIcon(loyalty.current.name) as any : "shield-checkmark"}
+              size={24}
+              color={loyalty.current?.color || Colors.light.textMuted}
+            />
+          </View>
+          <View style={loyaltyStyles.currentInfo}>
+            <Text style={loyaltyStyles.currentLabel}>Current Tier</Text>
+            <Text style={[loyaltyStyles.currentName, { color: loyalty.current?.color || Colors.light.textMuted }]}>
+              {loyalty.current?.name || "No Tier"}
+            </Text>
+          </View>
+        </View>
+        {loyalty.next && (
+          <View style={loyaltyStyles.progressSection}>
+            <View style={loyaltyStyles.progressHeader}>
+              <Text style={loyaltyStyles.progressLabel}>
+                ${(loyalty.next.threshold - balance).toLocaleString()} to {loyalty.next.name}
+              </Text>
+              <Text style={loyaltyStyles.progressPercent}>
+                {Math.round(loyalty.progress * 100)}%
+              </Text>
+            </View>
+            <View style={loyaltyStyles.progressTrack}>
+              <View
+                style={[
+                  loyaltyStyles.progressFill,
+                  {
+                    width: `${Math.min(loyalty.progress * 100, 100)}%`,
+                    backgroundColor: loyalty.next.color,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        )}
+        {!loyalty.next && loyalty.current && (
+          <Text style={loyaltyStyles.maxTierText}>You've reached the highest tier!</Text>
+        )}
+      </View>
+
+      <View style={loyaltyStyles.tiersCard}>
+        <Text style={loyaltyStyles.tiersTitle}>All Tiers</Text>
+        {loyaltyTiers.map((tier, idx) => {
+          const isActive = loyalty.current?.name === tier.name;
+          const isReached = balance >= tier.threshold;
+          return (
+            <View
+              key={tier.name}
+              style={[
+                loyaltyStyles.tierRow,
+                idx < loyaltyTiers.length - 1 && loyaltyStyles.tierRowBorder,
+              ]}
+            >
+              <View style={[loyaltyStyles.tierIconWrap, { backgroundColor: isReached ? tier.color + "18" : Colors.light.borderLight }]}>
+                <Ionicons
+                  name={getTierIcon(tier.name) as any}
+                  size={18}
+                  color={isReached ? tier.color : Colors.light.textMuted}
+                />
+              </View>
+              <View style={loyaltyStyles.tierInfo}>
+                <Text style={[loyaltyStyles.tierName, isActive && { color: tier.color, fontFamily: "DMSans_700Bold" }]}>
+                  {tier.name}
+                </Text>
+                <Text style={loyaltyStyles.tierThreshold}>
+                  ${(tier.threshold / 1000).toFixed(0)}K+ balance
+                </Text>
+              </View>
+              {isActive && (
+                <View style={[loyaltyStyles.activeBadge, { backgroundColor: tier.color + "18" }]}>
+                  <Text style={[loyaltyStyles.activeBadgeText, { color: tier.color }]}>Current</Text>
+                </View>
+              )}
+              {isReached && !isActive && (
+                <Feather name="check-circle" size={18} color={Colors.light.success} />
+              )}
+              {!isReached && (
+                <Feather name="lock" size={16} color={Colors.light.textMuted} />
+              )}
+            </View>
+          );
+        })}
+      </View>
+    </Animated.View>
+  );
+}
+
+const loyaltyStyles = StyleSheet.create({
+  currentCard: {
+    backgroundColor: Colors.light.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+  },
+  currentHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  currentIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  currentInfo: {
+    gap: 2,
+  },
+  currentLabel: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.textMuted,
+  },
+  currentName: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 22,
+  },
+  progressSection: {
+    marginTop: 18,
+    gap: 8,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  progressLabel: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+  },
+  progressPercent: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+  },
+  progressTrack: {
+    height: 8,
+    backgroundColor: Colors.light.borderLight,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  maxTierText: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 13,
+    color: Colors.light.success,
+    marginTop: 14,
+  },
+  tiersCard: {
+    backgroundColor: Colors.light.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+  },
+  tiersTitle: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 17,
+    color: Colors.light.text,
+    marginBottom: 16,
+  },
+  tierRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    gap: 12,
+  },
+  tierRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.borderLight,
+  },
+  tierIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  tierInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  tierName: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.text,
+  },
+  tierThreshold: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    color: Colors.light.textMuted,
+  },
+  activeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  activeBadgeText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 11,
+  },
+});
+
 function formatDate(dateStr: string) {
   const d = new Date(dateStr + "T00:00:00");
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
@@ -457,7 +680,7 @@ const modalStyles = StyleSheet.create({
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
-  const { receipts, transactions, contributionYTD, contributionLimit, addReceipt, submitReimbursement } = useHSA();
+  const { balance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, submitReimbursement } = useHSA();
   const [activeTab, setActiveTab] = useState(0);
   const [showAddReceipt, setShowAddReceipt] = useState(false);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
@@ -474,7 +697,7 @@ export default function AccountsScreen() {
         <Text style={styles.title}>Account</Text>
 
         <SegmentedControl
-          tabs={["Receipts", "Contributions", "Settings"]}
+          tabs={["Receipts", "Contributions", "Rewards", "Settings"]}
           active={activeTab}
           onChange={setActiveTab}
         />
@@ -537,6 +760,10 @@ export default function AccountsScreen() {
         )}
 
         {activeTab === 2 && (
+          <LoyaltySection balance={balance} />
+        )}
+
+        {activeTab === 3 && (
           <Animated.View entering={Platform.OS !== "web" ? FadeInDown.duration(400) : undefined}>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Account Details</Text>
