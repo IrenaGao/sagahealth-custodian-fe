@@ -53,7 +53,7 @@ const segStyles = StyleSheet.create({
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 8,
     alignItems: "center",
     borderRadius: 10,
   },
@@ -67,7 +67,7 @@ const segStyles = StyleSheet.create({
   },
   text: {
     fontFamily: "DMSans_500Medium",
-    fontSize: 14,
+    fontSize: 12,
     color: Colors.light.textMuted,
   },
   textActive: {
