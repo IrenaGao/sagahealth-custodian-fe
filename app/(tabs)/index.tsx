@@ -19,6 +19,7 @@ import Animated, {
   FadeInDown,
   FadeInRight,
 } from "react-native-reanimated";
+import { router } from "expo-router";
 import Colors from "@/constants/colors";
 import { useHSA, getLoyaltyTier } from "@/contexts/HSAContext";
 
@@ -669,7 +670,7 @@ export default function HomeScreen() {
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Recent Activity</Text>
-              <Pressable>
+              <Pressable onPress={() => router.push("/(tabs)/accounts")}>
                 <Text style={styles.seeAll}>See All</Text>
               </Pressable>
             </View>
