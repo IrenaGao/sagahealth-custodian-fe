@@ -31,6 +31,37 @@ export interface InvestmentHolding {
   color: string;
 }
 
+export interface LoyaltyTier {
+  name: "Silver" | "Gold" | "Platinum" | "Diamond";
+  threshold: number;
+  color: string;
+}
+
+export const loyaltyTiers: LoyaltyTier[] = [
+  { name: "Silver", threshold: 4000, color: "#8E9AAF" },
+  { name: "Gold", threshold: 10000, color: "#C5A236" },
+  { name: "Platinum", threshold: 20000, color: "#1A3328" },
+  { name: "Diamond", threshold: 50000, color: "#8B2FC9" },
+];
+
+export function getLoyaltyTier(balance: number): { current: LoyaltyTier | null; next: LoyaltyTier | null; progress: number } {
+  let current: LoyaltyTier | null = null;
+  let next: LoyaltyTier | null = null;
+  for (let i = loyaltyTiers.length - 1; i >= 0; i--) {
+    if (balance >= loyaltyTiers[i].threshold) {
+      current = loyaltyTiers[i];
+      next = i < loyaltyTiers.length - 1 ? loyaltyTiers[i + 1] : null;
+      break;
+    }
+  }
+  if (!current) {
+    next = loyaltyTiers[0];
+    return { current: null, next, progress: balance / next.threshold };
+  }
+  if (!next) return { current, next: null, progress: 1 };
+  return { current, next, progress: (balance - current.threshold) / (next.threshold - current.threshold) };
+}
+
 export interface HSAContextValue {
   balance: number;
   investedBalance: number;
