@@ -19,7 +19,7 @@ import Animated, {
   FadeInRight,
 } from "react-native-reanimated";
 import Colors from "@/constants/colors";
-import { useHSA } from "@/contexts/HSAContext";
+import { useHSA, getLoyaltyTier } from "@/contexts/HSAContext";
 
 const sagaLogo = require("@/assets/images/saga-logo.png");
 
@@ -501,6 +501,7 @@ const chartStyles = StyleSheet.create({
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions } = useHSA();
+  const loyalty = getLoyaltyTier(balance);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
   return (
@@ -530,7 +531,21 @@ export default function HomeScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.balanceCard}
           >
-            <Text style={styles.balanceLabel}>Total Balance</Text>
+            <View style={styles.balanceLabelRow}>
+              <Text style={styles.balanceLabel}>Total Balance</Text>
+              {loyalty.current && (
+                <View style={[styles.tierBadge, { backgroundColor: loyalty.current.color + "30" }]}>
+                  <Ionicons
+                    name={loyalty.current.name === "Diamond" ? "diamond" : loyalty.current.name === "Gold" ? "star" : loyalty.current.name === "Platinum" ? "ribbon" : "shield-checkmark"}
+                    size={12}
+                    color={loyalty.current.name === "Diamond" ? "#8B2FC9" : loyalty.current.name === "Gold" ? "#C5A236" : "#FFFFFF"}
+                  />
+                  <Text style={[styles.tierText, { color: loyalty.current.name === "Diamond" ? "#D4A5FF" : loyalty.current.name === "Gold" ? "#F0D68A" : "rgba(255,255,255,0.9)" }]}>
+                    {loyalty.current.name}
+                  </Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.balanceAmount}>${balance.toLocaleString()}</Text>
             <View style={styles.balanceRow}>
               <View style={styles.balanceSplit}>
@@ -674,6 +689,23 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 24,
     marginBottom: 20,
+  },
+  balanceLabelRow: {
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "center" as const,
+  },
+  tierBadge: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  tierText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 11,
   },
   balanceLabel: {
     fontFamily: "DMSans_500Medium",
