@@ -13,7 +13,7 @@ const palette = {
   coralLight: "#FEF2F0",
   sky: "#4A8BA8",
   skyLight: "#E8F3F8",
-  surface: "#D5E5D0",
+  surface: "#E0EDDB",
   surfaceCard: "#FFFFFF",
   border: "#B8CCBA",
   borderLight: "#C8DCC6",
