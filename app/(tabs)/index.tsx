@@ -576,9 +576,12 @@ export default function HomeScreen() {
             </View>
           </View>
           <View style={styles.headerPointsBox}>
-            <Ionicons name="star" size={14} color="#F0D68A" />
-            <Text style={styles.headerPointsNum}>{loyaltyPoints.toLocaleString()}</Text>
-            <Text style={styles.headerPointsLabel}>pts</Text>
+            <View style={styles.headerPointsRow}>
+              <Ionicons name="star" size={16} color="#F0D68A" />
+              <Text style={styles.headerPointsNum}>{loyaltyPoints.toLocaleString()}</Text>
+              <Text style={styles.headerPointsLabel}>pts</Text>
+            </View>
+            <Text style={styles.headerMemberSince}>Member since 2024</Text>
           </View>
         </View>
 
@@ -752,23 +755,32 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   headerPointsBox: {
+    alignItems: "center" as const,
+    backgroundColor: Colors.light.navy,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
+    gap: 3,
+  },
+  headerPointsRow: {
     flexDirection: "row" as const,
     alignItems: "center" as const,
-    gap: 4,
-    backgroundColor: Colors.light.navy,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
-    borderRadius: 14,
+    gap: 5,
   },
   headerPointsNum: {
     fontFamily: "DMSans_700Bold",
-    fontSize: 14,
+    fontSize: 16,
     color: "#F0D68A",
   },
   headerPointsLabel: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 11,
+    fontFamily: "DMSans_500Medium",
+    fontSize: 12,
     color: "rgba(255,255,255,0.5)",
+  },
+  headerMemberSince: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 10,
+    color: "rgba(255,255,255,0.45)",
   },
   balanceCard: {
     borderRadius: 20,
