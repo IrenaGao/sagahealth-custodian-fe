@@ -611,7 +611,7 @@ export default function MarketplaceScreen() {
               <Text style={[styles.loyaltyTierName, { color: loyalty.current?.color || Colors.light.text }]}>
                 {loyalty.current?.name || "Member"}{loyalty.current ? ` · ${loyalty.current.pointsMultiplier}x` : ""}
               </Text>
-              <Text style={styles.loyaltySubtext}>Earn points on every purchase</Text>
+              <Text style={styles.loyaltySubtext}>Points on purchase</Text>
             </View>
           </View>
           <View style={styles.loyaltyPointsWrap}>
