@@ -513,7 +513,6 @@ export default function HomeScreen() {
       >
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <Image source={sagaLogo} style={styles.logo} resizeMode="contain" />
             <View style={styles.headerInfo}>
               <View style={styles.nameRow}>
                 <Text style={styles.name}>Alex</Text>
