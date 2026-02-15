@@ -596,13 +596,6 @@ export default function MarketplaceScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 : 100 }]}
         contentInsetAdjustmentBehavior="automatic"
       >
-        <View style={styles.header}>
-          <Text style={styles.title}>Marketplace</Text>
-          <Pressable style={styles.searchBtn}>
-            <Feather name="search" size={20} color={Colors.light.text} />
-          </Pressable>
-        </View>
-
         <View style={styles.loyaltyBanner}>
           <View style={styles.loyaltyLeft}>
             {loyalty.current && (
@@ -756,6 +749,8 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
+    flex: 1,
+    marginRight: 12,
   },
   loyaltyIconWrap: {
     width: 36,
