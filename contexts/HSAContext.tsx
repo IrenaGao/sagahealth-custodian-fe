@@ -35,13 +35,14 @@ export interface LoyaltyTier {
   name: "Silver" | "Gold" | "Platinum" | "Diamond";
   threshold: number;
   color: string;
+  pointsMultiplier: number;
 }
 
 export const loyaltyTiers: LoyaltyTier[] = [
-  { name: "Silver", threshold: 4000, color: "#8E9AAF" },
-  { name: "Gold", threshold: 10000, color: "#C5A236" },
-  { name: "Platinum", threshold: 20000, color: "#1A3328" },
-  { name: "Diamond", threshold: 50000, color: "#8B2FC9" },
+  { name: "Silver", threshold: 4000, color: "#8E9AAF", pointsMultiplier: 1 },
+  { name: "Gold", threshold: 10000, color: "#C5A236", pointsMultiplier: 1.5 },
+  { name: "Platinum", threshold: 20000, color: "#1A3328", pointsMultiplier: 2 },
+  { name: "Diamond", threshold: 50000, color: "#8B2FC9", pointsMultiplier: 2.25 },
 ];
 
 export function getLoyaltyTier(balance: number): { current: LoyaltyTier | null; next: LoyaltyTier | null; progress: number } {
@@ -74,6 +75,7 @@ export interface HSAContextValue {
   autoInvestEnabled: boolean;
   firstDollarEnabled: boolean;
   roundUpEnabled: boolean;
+  loyaltyPoints: number;
   hasCompletedOnboarding: boolean;
   addContribution: (amount: number) => void;
   addReceipt: (receipt: Omit<Receipt, "id">) => void;
@@ -202,6 +204,13 @@ export function HSAProvider({ children }: { children: ReactNode }) {
 
   const cashBalance = balance - investedBalance;
 
+  const loyaltyPoints = useMemo(() => {
+    const loyalty = getLoyaltyTier(balance);
+    const multiplier = loyalty.current?.pointsMultiplier ?? 1;
+    const basePoints = Math.round(contributionYTD * 0.5);
+    return Math.round(basePoints * multiplier);
+  }, [balance, contributionYTD]);
+
   const value = useMemo(
     () => ({
       balance,
@@ -215,6 +224,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       autoInvestEnabled,
       firstDollarEnabled,
       roundUpEnabled,
+      loyaltyPoints,
       hasCompletedOnboarding,
       addContribution,
       addReceipt,
@@ -224,7 +234,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       toggleRoundUp,
       completeOnboarding,
     }),
-    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, hasCompletedOnboarding]
+    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding]
   );
 
   return <HSAContext.Provider value={value}>{children}</HSAContext.Provider>;

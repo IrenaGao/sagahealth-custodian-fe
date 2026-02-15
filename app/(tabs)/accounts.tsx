@@ -385,7 +385,7 @@ function LoyaltySection({ balance }: { balance: number }) {
                   {tier.name}
                 </Text>
                 <Text style={loyaltyStyles.tierThreshold}>
-                  ${(tier.threshold / 1000).toFixed(0)}K+ balance
+                  ${(tier.threshold / 1000).toFixed(0)}K+ balance  ·  {tier.pointsMultiplier}x points
                 </Text>
               </View>
               {isActive && (

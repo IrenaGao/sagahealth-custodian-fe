@@ -500,7 +500,7 @@ const chartStyles = StyleSheet.create({
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions } = useHSA();
+  const { balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, loyaltyPoints } = useHSA();
   const loyalty = getLoyaltyTier(balance);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
@@ -544,7 +544,14 @@ export default function HomeScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.balanceCard}
           >
-            <Text style={styles.balanceLabel}>Total Balance</Text>
+            <View style={styles.balanceTopRow}>
+              <Text style={styles.balanceLabel}>Total Balance</Text>
+              <View style={styles.pointsBox}>
+                <Ionicons name="star" size={12} color="#F0D68A" />
+                <Text style={styles.pointsValue}>{loyaltyPoints.toLocaleString()}</Text>
+                <Text style={styles.pointsLabel}>pts</Text>
+              </View>
+            </View>
             <Text style={styles.balanceAmount}>${balance.toLocaleString()}</Text>
             <View style={styles.balanceRow}>
               <View style={styles.balanceSplit}>
@@ -712,6 +719,32 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 24,
     marginBottom: 20,
+  },
+  balanceTopRow: {
+    flexDirection: "row" as const,
+    justifyContent: "space-between" as const,
+    alignItems: "center" as const,
+  },
+  pointsBox: {
+    flexDirection: "row" as const,
+    alignItems: "center" as const,
+    gap: 4,
+    backgroundColor: "rgba(255,255,255,0.1)",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.08)",
+  },
+  pointsValue: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 13,
+    color: "#F0D68A",
+  },
+  pointsLabel: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 11,
+    color: "rgba(255,255,255,0.5)",
   },
   balanceLabel: {
     fontFamily: "DMSans_500Medium",
