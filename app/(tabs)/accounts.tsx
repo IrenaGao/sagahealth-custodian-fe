@@ -94,13 +94,7 @@ const statusConfig: Record<string, { color: string; bg: string; label: string }>
   paid: { color: Colors.light.success, bg: Colors.light.successLight, label: "Paid" },
 };
 
-function ReceiptCard({
-  receipt,
-  onMarkUnreimbursed,
-}: {
-  receipt: Receipt;
-  onMarkUnreimbursed: () => void;
-}) {
+function ReceiptCard({ receipt }: { receipt: Receipt }) {
   const status = statusConfig[receipt.status] || statusConfig.pending;
   const catInfo = getCategoryInfo(receipt.category);
 
@@ -121,21 +115,6 @@ function ReceiptCard({
           </View>
         </View>
       </View>
-      {receipt.status === "pending" && (
-        <Pressable
-          style={({ pressed }) => [
-            rcStyles.submitBtn,
-            { opacity: pressed ? 0.8 : 1 },
-          ]}
-          onPress={() => {
-            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            onMarkUnreimbursed();
-          }}
-        >
-          <Feather name="archive" size={14} color={Colors.light.white} />
-          <Text style={rcStyles.submitText}>Shoebox This Receipt</Text>
-        </Pressable>
-      )}
     </View>
   );
 }
@@ -190,21 +169,6 @@ const rcStyles = StyleSheet.create({
   statusText: {
     fontFamily: "DMSans_600SemiBold",
     fontSize: 10,
-  },
-  submitBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    backgroundColor: Colors.light.tint,
-    borderRadius: 10,
-    paddingVertical: 10,
-    marginTop: 12,
-  },
-  submitText: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 13,
-    color: Colors.light.white,
   },
 });
 
@@ -545,13 +509,11 @@ const reimburseModalStyles = StyleSheet.create({
 function ReceiptsDashboard({
   receipts,
   totalUnreimbursed,
-  onMarkUnreimbursed,
   onAutoReimburse,
   onAddReceipt,
 }: {
   receipts: Receipt[];
   totalUnreimbursed: number;
-  onMarkUnreimbursed: (id: string) => void;
   onAutoReimburse: (amount: number) => void;
   onAddReceipt: () => void;
 }) {
@@ -706,7 +668,7 @@ function ReceiptsDashboard({
         </View>
       ) : (
         periodReceipts.map((r) => (
-          <ReceiptCard key={r.id} receipt={r} onMarkUnreimbursed={() => onMarkUnreimbursed(r.id)} />
+          <ReceiptCard key={r.id} receipt={r} />
         ))
       )}
 
@@ -1363,7 +1325,7 @@ const modalStyles = StyleSheet.create({
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
-  const { balance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, markReceiptUnreimbursed, autoReimburse, userName, totalUnreimbursed } = useHSA();
+  const { balance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, autoReimburse, userName, totalUnreimbursed } = useHSA();
   const [activeTab, setActiveTab] = useState(0);
   const [showAddReceipt, setShowAddReceipt] = useState(false);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
@@ -1389,7 +1351,6 @@ export default function AccountsScreen() {
           <ReceiptsDashboard
             receipts={receipts}
             totalUnreimbursed={totalUnreimbursed}
-            onMarkUnreimbursed={markReceiptUnreimbursed}
             onAutoReimburse={autoReimburse}
             onAddReceipt={() => setShowAddReceipt(true)}
           />

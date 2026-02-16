@@ -82,7 +82,6 @@ export interface HSAContextValue {
   totalUnreimbursed: number;
   addContribution: (amount: number) => void;
   addReceipt: (receipt: Omit<Receipt, "id">) => void;
-  markReceiptUnreimbursed: (receiptId: string) => void;
   autoReimburse: (amount: number) => void;
   toggleAutoInvest: () => void;
   toggleFirstDollar: () => void;
@@ -110,7 +109,7 @@ const defaultTransactions: Transaction[] = [
 ];
 
 const defaultReceipts: Receipt[] = [
-  { id: "r1", title: "Annual Physical", amount: 150, date: "2026-02-10", category: "medical", status: "pending", provider: "Dr. Johnson" },
+  { id: "r1", title: "Annual Physical", amount: 150, date: "2026-02-10", category: "medical", status: "unreimbursed", provider: "Dr. Johnson" },
   { id: "r2", title: "Prescription - Amoxicillin", amount: 25, date: "2026-02-05", category: "pharmacy", status: "unreimbursed", provider: "CVS Pharmacy" },
   { id: "r3", title: "Eye Exam", amount: 89, date: "2026-01-20", category: "vision", status: "unreimbursed", provider: "Zenni Optical" },
   { id: "r4", title: "Dental Cleaning", amount: 120, date: "2026-01-08", category: "dental", status: "paid", provider: "Bright Smile Dental" },
@@ -181,17 +180,18 @@ export function HSAProvider({ children }: { children: ReactNode }) {
   };
 
   const addReceipt = (receipt: Omit<Receipt, "id">) => {
+    const newId = Date.now().toString() + Math.random().toString(36).substr(2, 9);
     const newReceipt: Receipt = {
       ...receipt,
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+      id: newId,
+      status: "pending" as const,
     };
     setReceipts((prev) => [newReceipt, ...prev]);
-  };
-
-  const markReceiptUnreimbursed = (receiptId: string) => {
-    setReceipts((prev) =>
-      prev.map((r) => (r.id === receiptId ? { ...r, status: "unreimbursed" as const } : r))
-    );
+    setTimeout(() => {
+      setReceipts((prev) =>
+        prev.map((r) => (r.id === newId && r.status === "pending" ? { ...r, status: "unreimbursed" as const } : r))
+      );
+    }, 3000);
   };
 
   const autoReimburse = (amount: number) => {
@@ -283,7 +283,6 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       totalUnreimbursed,
       addContribution,
       addReceipt,
-      markReceiptUnreimbursed,
       autoReimburse,
       toggleAutoInvest,
       toggleFirstDollar,
