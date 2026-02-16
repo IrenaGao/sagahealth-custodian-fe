@@ -90,19 +90,18 @@ function getCategoryInfo(cat: string) {
 
 const statusConfig: Record<string, { color: string; bg: string; label: string }> = {
   pending: { color: Colors.light.accent, bg: Colors.light.accentLight, label: "Pending" },
-  submitted: { color: Colors.light.info, bg: Colors.light.infoLight, label: "Submitted" },
-  approved: { color: Colors.light.success, bg: Colors.light.successLight, label: "Approved" },
-  denied: { color: Colors.light.danger, bg: Colors.light.dangerLight, label: "Denied" },
+  unreimbursed: { color: Colors.light.info, bg: Colors.light.infoLight, label: "Unreimbursed" },
+  paid: { color: Colors.light.success, bg: Colors.light.successLight, label: "Paid" },
 };
 
 function ReceiptCard({
   receipt,
-  onSubmit,
+  onMarkUnreimbursed,
 }: {
   receipt: Receipt;
-  onSubmit: () => void;
+  onMarkUnreimbursed: () => void;
 }) {
-  const status = statusConfig[receipt.status];
+  const status = statusConfig[receipt.status] || statusConfig.pending;
   const catInfo = getCategoryInfo(receipt.category);
 
   return (
@@ -130,11 +129,11 @@ function ReceiptCard({
           ]}
           onPress={() => {
             if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            onSubmit();
+            onMarkUnreimbursed();
           }}
         >
-          <Feather name="send" size={14} color={Colors.light.white} />
-          <Text style={rcStyles.submitText}>Submit for Reimbursement</Text>
+          <Feather name="archive" size={14} color={Colors.light.white} />
+          <Text style={rcStyles.submitText}>Shoebox This Receipt</Text>
         </Pressable>
       )}
     </View>
@@ -317,17 +316,248 @@ const periodStyles = StyleSheet.create({
   },
 });
 
+function AutoReimburseModal({
+  visible,
+  onClose,
+  totalUnreimbursed,
+  onReimburse,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  totalUnreimbursed: number;
+  onReimburse: (amount: number) => void;
+}) {
+  const presets = useMemo(() => {
+    const options: number[] = [];
+    if (totalUnreimbursed >= 100) options.push(100);
+    if (totalUnreimbursed >= 250) options.push(250);
+    if (totalUnreimbursed >= 500) options.push(500);
+    if (totalUnreimbursed >= 1000) options.push(1000);
+    options.push(totalUnreimbursed);
+    return [...new Set(options)];
+  }, [totalUnreimbursed]);
+
+  const [selectedAmount, setSelectedAmount] = useState(presets[0] || 0);
+  const [customAmount, setCustomAmount] = useState("");
+  const [useCustom, setUseCustom] = useState(false);
+  const insets = useSafeAreaInsets();
+
+  const effectiveAmount = useCustom ? (parseFloat(customAmount) || 0) : selectedAmount;
+  const isValid = effectiveAmount > 0 && effectiveAmount <= totalUnreimbursed;
+
+  const handleReimburse = () => {
+    if (!isValid) return;
+    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    onReimburse(effectiveAmount);
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={reimburseModalStyles.overlay}>
+        <View style={[reimburseModalStyles.container, { paddingBottom: insets.bottom + 20 }]}>
+          <View style={reimburseModalStyles.header}>
+            <Text style={reimburseModalStyles.headerTitle}>Auto-Reimburse</Text>
+            <Pressable onPress={onClose}>
+              <Feather name="x" size={24} color={Colors.light.text} />
+            </Pressable>
+          </View>
+
+          <Text style={reimburseModalStyles.desc}>
+            Choose how much to reimburse from your ${totalUnreimbursed.toLocaleString(undefined, { minimumFractionDigits: 2 })} unreimbursed balance. Oldest receipts are reimbursed first.
+          </Text>
+
+          <View style={reimburseModalStyles.presetRow}>
+            {presets.map((amt) => {
+              const isAll = amt === totalUnreimbursed;
+              const isSelected = !useCustom && selectedAmount === amt;
+              return (
+                <Pressable
+                  key={amt}
+                  style={[reimburseModalStyles.presetBtn, isSelected && reimburseModalStyles.presetBtnActive]}
+                  onPress={() => { setUseCustom(false); setSelectedAmount(amt); if (Platform.OS !== "web") Haptics.selectionAsync(); }}
+                >
+                  <Text style={[reimburseModalStyles.presetText, isSelected && reimburseModalStyles.presetTextActive]}>
+                    {isAll ? "All" : `$${amt}`}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          <Pressable
+            style={[reimburseModalStyles.customRow, useCustom && reimburseModalStyles.customRowActive]}
+            onPress={() => setUseCustom(true)}
+          >
+            <Text style={reimburseModalStyles.customLabel}>Custom amount</Text>
+            <View style={reimburseModalStyles.customInputWrap}>
+              <Text style={reimburseModalStyles.dollarSign}>$</Text>
+              <TextInput
+                style={reimburseModalStyles.customInput}
+                placeholder="0.00"
+                value={customAmount}
+                onChangeText={(t) => { setUseCustom(true); setCustomAmount(t); }}
+                keyboardType="decimal-pad"
+                placeholderTextColor={Colors.light.textMuted}
+              />
+            </View>
+          </Pressable>
+
+          {useCustom && effectiveAmount > totalUnreimbursed && (
+            <Text style={reimburseModalStyles.errorText}>
+              Amount exceeds your unreimbursed balance
+            </Text>
+          )}
+
+          <Pressable
+            style={({ pressed }) => [
+              reimburseModalStyles.reimburseBtn,
+              { opacity: pressed ? 0.8 : 1, backgroundColor: isValid ? Colors.light.tint : Colors.light.border },
+            ]}
+            onPress={handleReimburse}
+            disabled={!isValid}
+          >
+            <Feather name="dollar-sign" size={16} color={Colors.light.white} />
+            <Text style={reimburseModalStyles.reimburseBtnText}>
+              Reimburse ${effectiveAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const reimburseModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  container: {
+    backgroundColor: Colors.light.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  headerTitle: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 20,
+    color: Colors.light.text,
+  },
+  desc: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  presetRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 16,
+  },
+  presetBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.light.borderLight,
+    minWidth: 70,
+    alignItems: "center",
+  },
+  presetBtnActive: {
+    backgroundColor: Colors.light.tint,
+  },
+  presetText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.text,
+  },
+  presetTextActive: {
+    color: Colors.light.white,
+  },
+  customRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 8,
+  },
+  customRowActive: {
+    borderColor: Colors.light.tint,
+  },
+  customLabel: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+  },
+  customInputWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  dollarSign: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  customInput: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 16,
+    color: Colors.light.text,
+    minWidth: 60,
+    textAlign: "right",
+    paddingVertical: 0,
+  },
+  errorText: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    color: Colors.light.danger,
+    marginBottom: 8,
+  },
+  reimburseBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 16,
+    marginTop: 12,
+  },
+  reimburseBtnText: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 16,
+    color: Colors.light.white,
+  },
+});
+
 function ReceiptsDashboard({
   receipts,
-  onSubmit,
+  totalUnreimbursed,
+  onMarkUnreimbursed,
+  onAutoReimburse,
   onAddReceipt,
 }: {
   receipts: Receipt[];
-  onSubmit: (id: string) => void;
+  totalUnreimbursed: number;
+  onMarkUnreimbursed: (id: string) => void;
+  onAutoReimburse: (amount: number) => void;
   onAddReceipt: () => void;
 }) {
   const [periodMode, setPeriodMode] = useState<"monthly" | "yearly">("monthly");
   const [selectedPeriodIdx, setSelectedPeriodIdx] = useState(0);
+  const [showAutoReimburse, setShowAutoReimburse] = useState(false);
 
   const periods = useMemo(() => {
     if (periodMode === "monthly") {
@@ -366,11 +596,11 @@ function ReceiptsDashboard({
   const periodReceipts = currentPeriod?.receipts || [];
 
   const totalSpent = periodReceipts.reduce((s, r) => s + r.amount, 0);
-  const unreimbursed = periodReceipts
-    .filter((r) => r.status === "pending" || r.status === "submitted")
+  const periodUnreimbursed = periodReceipts
+    .filter((r) => r.status === "unreimbursed")
     .reduce((s, r) => s + r.amount, 0);
-  const reimbursed = periodReceipts
-    .filter((r) => r.status === "approved")
+  const periodPaid = periodReceipts
+    .filter((r) => r.status === "paid")
     .reduce((s, r) => s + r.amount, 0);
 
   const categoryBreakdown = useMemo(() => {
@@ -396,12 +626,32 @@ function ReceiptsDashboard({
 
   return (
     <Animated.View entering={Platform.OS !== "web" ? FadeInDown.duration(400) : undefined}>
-      <View style={dashStyles.unreimbursedBar}>
-        <View style={dashStyles.unreimbursedLeft}>
-          <Feather name="alert-circle" size={16} color={Colors.light.accent} />
-          <Text style={dashStyles.unreimbursedLabel}>Unreimbursed</Text>
+      <View style={dashStyles.shoeboxCard}>
+        <View style={dashStyles.shoeboxTop}>
+          <View style={dashStyles.shoeboxIconWrap}>
+            <Feather name="archive" size={20} color={Colors.light.tint} />
+          </View>
+          <View style={dashStyles.shoeboxInfo}>
+            <Text style={dashStyles.shoeboxLabel}>Shoebox Balance</Text>
+            <Text style={dashStyles.shoeboxHint}>Unreimbursed across all time</Text>
+          </View>
         </View>
-        <Text style={dashStyles.unreimbursedAmount}>${unreimbursed.toFixed(2)}</Text>
+        <Text style={dashStyles.shoeboxAmount}>${totalUnreimbursed.toLocaleString(undefined, { minimumFractionDigits: 2 })}</Text>
+        <Text style={dashStyles.shoeboxGrowth}>
+          Keeping receipts unreimbursed lets your HSA grow tax-free
+        </Text>
+        {totalUnreimbursed > 0 && (
+          <Pressable
+            style={({ pressed }) => [dashStyles.reimburseBtn, { opacity: pressed ? 0.85 : 1 }]}
+            onPress={() => {
+              if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              setShowAutoReimburse(true);
+            }}
+          >
+            <Feather name="dollar-sign" size={14} color={Colors.light.tint} />
+            <Text style={dashStyles.reimburseBtnText}>Auto-Reimburse</Text>
+          </Pressable>
+        )}
       </View>
 
       <View style={dashStyles.periodNav}>
@@ -427,12 +677,12 @@ function ReceiptsDashboard({
           <Text style={dashStyles.summaryValue}>${totalSpent.toFixed(0)}</Text>
         </View>
         <View style={dashStyles.summaryCard}>
-          <Text style={dashStyles.summaryLabel}>Reimbursed</Text>
-          <Text style={[dashStyles.summaryValue, { color: Colors.light.success }]}>${reimbursed.toFixed(0)}</Text>
+          <Text style={dashStyles.summaryLabel}>Unreimbursed</Text>
+          <Text style={[dashStyles.summaryValue, { color: Colors.light.info }]}>${periodUnreimbursed.toFixed(0)}</Text>
         </View>
         <View style={dashStyles.summaryCard}>
-          <Text style={dashStyles.summaryLabel}>Receipts</Text>
-          <Text style={dashStyles.summaryValue}>{periodReceipts.length}</Text>
+          <Text style={dashStyles.summaryLabel}>Paid</Text>
+          <Text style={[dashStyles.summaryValue, { color: Colors.light.success }]}>${periodPaid.toFixed(0)}</Text>
         </View>
       </View>
 
@@ -456,40 +706,83 @@ function ReceiptsDashboard({
         </View>
       ) : (
         periodReceipts.map((r) => (
-          <ReceiptCard key={r.id} receipt={r} onSubmit={() => onSubmit(r.id)} />
+          <ReceiptCard key={r.id} receipt={r} onMarkUnreimbursed={() => onMarkUnreimbursed(r.id)} />
         ))
       )}
+
+      <AutoReimburseModal
+        visible={showAutoReimburse}
+        onClose={() => setShowAutoReimburse(false)}
+        totalUnreimbursed={totalUnreimbursed}
+        onReimburse={onAutoReimburse}
+      />
     </Animated.View>
   );
 }
 
 const dashStyles = StyleSheet.create({
-  unreimbursedBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: Colors.light.accentLight,
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  shoeboxCard: {
+    backgroundColor: Colors.light.card,
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: Colors.light.accent + "30",
+    borderColor: Colors.light.tint + "20",
   },
-  unreimbursedLeft: {
+  shoeboxTop: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 8,
+    gap: 12,
+    marginBottom: 14,
   },
-  unreimbursedLabel: {
+  shoeboxIconWrap: {
+    width: 42,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: Colors.light.tintLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  shoeboxInfo: {
+    gap: 2,
+  },
+  shoeboxLabel: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  shoeboxHint: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    color: Colors.light.textMuted,
+  },
+  shoeboxAmount: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 32,
+    color: Colors.light.tint,
+    marginBottom: 6,
+  },
+  shoeboxGrowth: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    lineHeight: 18,
+    marginBottom: 14,
+  },
+  reimburseBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    borderWidth: 1.5,
+    borderColor: Colors.light.tint,
+    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  reimburseBtnText: {
     fontFamily: "DMSans_600SemiBold",
     fontSize: 14,
-    color: Colors.light.accent,
-  },
-  unreimbursedAmount: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 18,
-    color: Colors.light.accent,
+    color: Colors.light.tint,
   },
   periodNav: {
     flexDirection: "row",
@@ -1070,7 +1363,7 @@ const modalStyles = StyleSheet.create({
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
-  const { balance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, submitReimbursement, userName } = useHSA();
+  const { balance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, markReceiptUnreimbursed, autoReimburse, userName, totalUnreimbursed } = useHSA();
   const [activeTab, setActiveTab] = useState(0);
   const [showAddReceipt, setShowAddReceipt] = useState(false);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
@@ -1095,7 +1388,9 @@ export default function AccountsScreen() {
         {activeTab === 0 && (
           <ReceiptsDashboard
             receipts={receipts}
-            onSubmit={submitReimbursement}
+            totalUnreimbursed={totalUnreimbursed}
+            onMarkUnreimbursed={markReceiptUnreimbursed}
+            onAutoReimburse={autoReimburse}
             onAddReceipt={() => setShowAddReceipt(true)}
           />
         )}
