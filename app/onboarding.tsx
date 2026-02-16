@@ -268,7 +268,7 @@ export default function OnboardingScreen() {
             </View>
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Street Address</Text>
-              <TextInput style={styles.input} value={street} onChangeText={setStreet} placeholder="123 Main St" placeholderTextColor={Colors.light.textMuted} />
+              <TextInput style={styles.input} value={street} onChangeText={setStreet} placeholder="123 Main St" placeholderTextColor={Colors.light.textMuted} autoCorrect={false} />
             </View>
             <View style={styles.rowFields}>
               <View style={[styles.formGroup, { flex: 1 }]}>
@@ -708,6 +708,8 @@ export default function OnboardingScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
+          automaticallyAdjustKeyboardInsets
         >
           {renderStep()}
         </ScrollView>
