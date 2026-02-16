@@ -21,6 +21,14 @@ export interface Receipt {
   provider?: string;
 }
 
+export interface LinkedCard {
+  id: string;
+  type: "visa" | "mastercard" | "amex" | "discover";
+  last4: string;
+  label: string;
+  isDefault: boolean;
+}
+
 export interface InvestmentHolding {
   id: string;
   name: string;
@@ -80,6 +88,10 @@ export interface HSAContextValue {
   isLoading: boolean;
   userName: string;
   totalUnreimbursed: number;
+  linkedCards: LinkedCard[];
+  addLinkedCard: (card: Omit<LinkedCard, "id">) => void;
+  removeLinkedCard: (cardId: string) => void;
+  setDefaultCard: (cardId: string) => void;
   addContribution: (amount: number) => void;
   addReceipt: (receipt: Omit<Receipt, "id">) => void;
   autoReimburse: (amount: number) => void;
@@ -135,6 +147,9 @@ export function HSAProvider({ children }: { children: ReactNode }) {
   const [autoInvestEnabled, setAutoInvestEnabled] = useState(true);
   const [firstDollarEnabled, setFirstDollarEnabled] = useState(true);
   const [roundUpEnabled, setRoundUpEnabled] = useState(false);
+  const [linkedCards, setLinkedCards] = useState<LinkedCard[]>([
+    { id: "lc1", type: "visa", last4: "4829", label: "Chase Sapphire", isDefault: true },
+  ]);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState("");
@@ -215,6 +230,34 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const addLinkedCard = (card: Omit<LinkedCard, "id">) => {
+    const newCard: LinkedCard = {
+      ...card,
+      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+    };
+    if (newCard.isDefault) {
+      setLinkedCards((prev) => [...prev.map((c) => ({ ...c, isDefault: false })), newCard]);
+    } else {
+      setLinkedCards((prev) => [...prev, newCard]);
+    }
+  };
+
+  const removeLinkedCard = (cardId: string) => {
+    setLinkedCards((prev) => {
+      const updated = prev.filter((c) => c.id !== cardId);
+      if (updated.length > 0 && !updated.some((c) => c.isDefault)) {
+        updated[0].isDefault = true;
+      }
+      return updated;
+    });
+  };
+
+  const setDefaultCard = (cardId: string) => {
+    setLinkedCards((prev) =>
+      prev.map((c) => ({ ...c, isDefault: c.id === cardId }))
+    );
+  };
+
   const toggleAutoInvest = () => {
     setAutoInvestEnabled((prev) => {
       saveData({ autoInvestEnabled: !prev });
@@ -281,6 +324,10 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       isLoading,
       userName,
       totalUnreimbursed,
+      linkedCards,
+      addLinkedCard,
+      removeLinkedCard,
+      setDefaultCard,
       addContribution,
       addReceipt,
       autoReimburse,
@@ -289,7 +336,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       toggleRoundUp,
       completeOnboarding,
     }),
-    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, totalUnreimbursed]
+    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, totalUnreimbursed, linkedCards]
   );
 
   return <HSAContext.Provider value={value}>{children}</HSAContext.Provider>;
