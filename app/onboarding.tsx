@@ -704,35 +704,35 @@ export default function OnboardingScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + bottomPad + 24 }]}
         keyboardShouldPersistTaps="handled"
         {...(Platform.OS !== "web" ? { automaticallyAdjustKeyboardInsets: true } : {})}
       >
         {renderStep()}
-      </ScrollView>
 
-      {showButton && (
-        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + bottomPad }]}>
-          <Pressable
-            style={({ pressed }) => [
-              styles.nextBtn,
-              { opacity: pressed && canContinue() ? 0.9 : 1, transform: [{ scale: pressed && canContinue() ? 0.98 : 1 }] },
-            ]}
-            onPress={goNext}
-            disabled={!canContinue()}
-          >
-            <LinearGradient
-              colors={canContinue() ? [Colors.light.tint, Colors.light.tintDark] : [Colors.light.border, Colors.light.border]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
-              style={styles.nextBtnGradient}
+        {showButton && (
+          <View style={styles.bottomBar}>
+            <Pressable
+              style={({ pressed }) => [
+                styles.nextBtn,
+                { opacity: pressed && canContinue() ? 0.9 : 1, transform: [{ scale: pressed && canContinue() ? 0.98 : 1 }] },
+              ]}
+              onPress={goNext}
+              disabled={!canContinue()}
             >
-              <Text style={[styles.nextBtnText, !canContinue() && { color: Colors.light.textMuted }]}>{getButtonText()}</Text>
-              <Feather name="arrow-right" size={18} color={canContinue() ? Colors.light.white : Colors.light.textMuted} />
-            </LinearGradient>
-          </Pressable>
-        </View>
-      )}
+              <LinearGradient
+                colors={canContinue() ? [Colors.light.tint, Colors.light.tintDark] : [Colors.light.border, Colors.light.border]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.nextBtnGradient}
+              >
+                <Text style={[styles.nextBtnText, !canContinue() && { color: Colors.light.textMuted }]}>{getButtonText()}</Text>
+                <Feather name="arrow-right" size={18} color={canContinue() ? Colors.light.white : Colors.light.textMuted} />
+              </LinearGradient>
+            </Pressable>
+          </View>
+        )}
+      </ScrollView>
     </View>
   );
 }
@@ -1234,13 +1234,7 @@ const styles = StyleSheet.create({
     borderColor: "transparent",
   },
   bottomBar: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    backgroundColor: Colors.light.background,
+    paddingTop: 24,
   },
   nextBtn: {},
   nextBtnGradient: {
