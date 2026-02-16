@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Colors from "@/constants/colors";
-import { useHSA, Receipt, getLoyaltyTier, loyaltyTiers, LoyaltyTier } from "@/contexts/HSAContext";
+import { useHSA, Receipt, LinkedCard, getLoyaltyTier, loyaltyTiers, LoyaltyTier } from "@/contexts/HSAContext";
 
 function SegmentedControl({
   tabs,
@@ -949,6 +949,476 @@ const settStyles = StyleSheet.create({
   },
 });
 
+const cardBrands: Record<string, { label: string; color: string; icon: string }> = {
+  visa: { label: "Visa", color: "#1A1F71", icon: "card" },
+  mastercard: { label: "Mastercard", color: "#EB001B", icon: "card" },
+  amex: { label: "Amex", color: "#006FCF", icon: "card" },
+  discover: { label: "Discover", color: "#FF6600", icon: "card" },
+};
+
+function AddCardModal({
+  visible,
+  onClose,
+  onAdd,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onAdd: (card: Omit<LinkedCard, "id">) => void;
+}) {
+  const [cardNumber, setCardNumber] = useState("");
+  const [label, setLabel] = useState("");
+  const [cardType, setCardType] = useState<"visa" | "mastercard" | "amex" | "discover">("visa");
+  const insets = useSafeAreaInsets();
+
+  const detectCardType = (num: string): "visa" | "mastercard" | "amex" | "discover" => {
+    const cleaned = num.replace(/\s/g, "");
+    if (cleaned.startsWith("4")) return "visa";
+    if (/^5[1-5]/.test(cleaned) || /^2[2-7]/.test(cleaned)) return "mastercard";
+    if (/^3[47]/.test(cleaned)) return "amex";
+    if (cleaned.startsWith("6")) return "discover";
+    return "visa";
+  };
+
+  const formatCardNumber = (raw: string) => {
+    const cleaned = raw.replace(/\D/g, "").slice(0, 16);
+    return cleaned.replace(/(.{4})/g, "$1 ").trim();
+  };
+
+  const handleNumberChange = (text: string) => {
+    const formatted = formatCardNumber(text);
+    setCardNumber(formatted);
+    setCardType(detectCardType(text));
+  };
+
+  const handleAdd = () => {
+    const cleaned = cardNumber.replace(/\s/g, "");
+    if (cleaned.length < 4) return;
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onAdd({
+      type: cardType,
+      last4: cleaned.slice(-4),
+      label: label || `${cardBrands[cardType].label} ****${cleaned.slice(-4)}`,
+      isDefault: false,
+    });
+    setCardNumber("");
+    setLabel("");
+    setCardType("visa");
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={addCardStyles.overlay} onPress={onClose}>
+        <Pressable style={[addCardStyles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]} onPress={(e) => e.stopPropagation()}>
+          <View style={addCardStyles.handle} />
+          <Text style={addCardStyles.title}>Link a Card</Text>
+          <Text style={addCardStyles.subtitle}>We'll automatically detect HSA-eligible purchases made with this card</Text>
+
+          <View style={addCardStyles.inputGroup}>
+            <Text style={addCardStyles.label}>Card Number</Text>
+            <View style={addCardStyles.cardInputRow}>
+              <Ionicons name="card-outline" size={20} color={cardBrands[cardType].color} />
+              <TextInput
+                style={addCardStyles.input}
+                placeholder="1234 5678 9012 3456"
+                placeholderTextColor={Colors.light.textMuted}
+                value={cardNumber}
+                onChangeText={handleNumberChange}
+                keyboardType="number-pad"
+                maxLength={19}
+              />
+              <Text style={[addCardStyles.brandTag, { color: cardBrands[cardType].color }]}>
+                {cardBrands[cardType].label}
+              </Text>
+            </View>
+          </View>
+
+          <View style={addCardStyles.inputGroup}>
+            <Text style={addCardStyles.label}>Card Nickname (optional)</Text>
+            <TextInput
+              style={addCardStyles.inputFull}
+              placeholder='e.g. "My Chase Card"'
+              placeholderTextColor={Colors.light.textMuted}
+              value={label}
+              onChangeText={setLabel}
+            />
+          </View>
+
+          <View style={addCardStyles.infoRow}>
+            <Feather name="shield" size={16} color={Colors.light.tint} />
+            <Text style={addCardStyles.infoText}>Your card info is encrypted and never stored on our servers</Text>
+          </View>
+
+          <Pressable
+            style={({ pressed }) => [
+              addCardStyles.addBtn,
+              { opacity: pressed ? 0.85 : 1, backgroundColor: cardNumber.replace(/\s/g, "").length >= 4 ? Colors.light.tint : Colors.light.borderLight },
+            ]}
+            onPress={handleAdd}
+            disabled={cardNumber.replace(/\s/g, "").length < 4}
+          >
+            <Feather name="link" size={16} color={Colors.light.white} />
+            <Text style={addCardStyles.addBtnText}>Link Card</Text>
+          </Pressable>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const addCardStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: Colors.light.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingTop: 16,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.light.borderLight,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  title: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 20,
+    color: Colors.light.text,
+    marginBottom: 6,
+  },
+  subtitle: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    marginBottom: 20,
+    lineHeight: 18,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    marginBottom: 6,
+  },
+  cardInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.light.background,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+  },
+  input: {
+    flex: 1,
+    fontFamily: "DMSans_500Medium",
+    fontSize: 16,
+    color: Colors.light.text,
+    letterSpacing: 1,
+  },
+  inputFull: {
+    backgroundColor: Colors.light.background,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: "DMSans_500Medium",
+    fontSize: 15,
+    color: Colors.light.text,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+  },
+  brandTag: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 12,
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: Colors.light.tint + "10",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 20,
+  },
+  infoText: {
+    flex: 1,
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    lineHeight: 16,
+  },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderRadius: 14,
+    paddingVertical: 16,
+  },
+  addBtnText: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 16,
+    color: Colors.light.white,
+  },
+});
+
+function LinkedCardsSection({
+  cards,
+  onAddCard,
+  onRemoveCard,
+  onSetDefault,
+}: {
+  cards: LinkedCard[];
+  onAddCard: () => void;
+  onRemoveCard: (id: string) => void;
+  onSetDefault: (id: string) => void;
+}) {
+  return (
+    <Animated.View entering={Platform.OS !== "web" ? FadeInDown.duration(400) : undefined}>
+      <View style={lcStyles.header}>
+        <View>
+          <Text style={lcStyles.sectionTitle}>Linked Cards</Text>
+          <Text style={lcStyles.sectionSubtitle}>We auto-detect HSA-eligible purchases</Text>
+        </View>
+        <Pressable
+          style={({ pressed }) => [lcStyles.addBtn, { opacity: pressed ? 0.7 : 1 }]}
+          onPress={onAddCard}
+        >
+          <Feather name="plus" size={18} color={Colors.light.white} />
+        </Pressable>
+      </View>
+
+      {cards.length === 0 ? (
+        <Pressable
+          style={({ pressed }) => [lcStyles.emptyCard, { opacity: pressed ? 0.8 : 1 }]}
+          onPress={onAddCard}
+        >
+          <View style={lcStyles.emptyIconWrap}>
+            <Feather name="credit-card" size={28} color={Colors.light.tint} />
+          </View>
+          <Text style={lcStyles.emptyTitle}>No cards linked yet</Text>
+          <Text style={lcStyles.emptyDesc}>Link your credit or debit card so we can automatically find and track your HSA-eligible spending</Text>
+          <View style={lcStyles.emptyBtn}>
+            <Feather name="plus" size={14} color={Colors.light.tint} />
+            <Text style={lcStyles.emptyBtnText}>Link a Card</Text>
+          </View>
+        </Pressable>
+      ) : (
+        cards.map((card) => {
+          const brand = cardBrands[card.type] || cardBrands.visa;
+          return (
+            <View key={card.id} style={lcStyles.card}>
+              <View style={lcStyles.cardTop}>
+                <View style={[lcStyles.cardIconWrap, { backgroundColor: brand.color + "15" }]}>
+                  <Ionicons name="card" size={20} color={brand.color} />
+                </View>
+                <View style={lcStyles.cardInfo}>
+                  <Text style={lcStyles.cardLabel}>{card.label}</Text>
+                  <Text style={lcStyles.cardNumber}>{brand.label} ****{card.last4}</Text>
+                </View>
+                {card.isDefault && (
+                  <View style={lcStyles.defaultBadge}>
+                    <Text style={lcStyles.defaultText}>Default</Text>
+                  </View>
+                )}
+              </View>
+              <View style={lcStyles.cardActions}>
+                {!card.isDefault && (
+                  <Pressable
+                    style={({ pressed }) => [lcStyles.actionBtn, { opacity: pressed ? 0.7 : 1 }]}
+                    onPress={() => {
+                      if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      onSetDefault(card.id);
+                    }}
+                  >
+                    <Feather name="check-circle" size={14} color={Colors.light.tint} />
+                    <Text style={[lcStyles.actionText, { color: Colors.light.tint }]}>Set Default</Text>
+                  </Pressable>
+                )}
+                <Pressable
+                  style={({ pressed }) => [lcStyles.actionBtn, { opacity: pressed ? 0.7 : 1 }]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    onRemoveCard(card.id);
+                  }}
+                >
+                  <Feather name="trash-2" size={14} color={Colors.light.danger} />
+                  <Text style={[lcStyles.actionText, { color: Colors.light.danger }]}>Remove</Text>
+                </Pressable>
+              </View>
+              <View style={lcStyles.trackingRow}>
+                <Feather name="zap" size={12} color={Colors.light.success} />
+                <Text style={lcStyles.trackingText}>Auto-tracking HSA-eligible purchases</Text>
+              </View>
+            </View>
+          );
+        })
+      )}
+    </Animated.View>
+  );
+}
+
+const lcStyles = StyleSheet.create({
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
+  sectionTitle: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 17,
+    color: Colors.light.text,
+  },
+  sectionSubtitle: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    marginTop: 2,
+  },
+  addBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.light.tint,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyCard: {
+    backgroundColor: Colors.light.card,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: "center",
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+    borderStyle: "dashed",
+  },
+  emptyIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: Colors.light.tint + "12",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 16,
+    color: Colors.light.text,
+    marginBottom: 6,
+  },
+  emptyDesc: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    textAlign: "center",
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  emptyBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: Colors.light.tint + "15",
+  },
+  emptyBtnText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+    color: Colors.light.tint,
+  },
+  card: {
+    backgroundColor: Colors.light.card,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 10,
+  },
+  cardTop: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  cardIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  cardInfo: {
+    flex: 1,
+  },
+  cardLabel: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.text,
+  },
+  cardNumber: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    marginTop: 2,
+  },
+  defaultBadge: {
+    backgroundColor: Colors.light.tint + "18",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  defaultText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 11,
+    color: Colors.light.tint,
+  },
+  cardActions: {
+    flexDirection: "row",
+    gap: 16,
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.borderLight,
+  },
+  actionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  actionText: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 13,
+  },
+  trackingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 10,
+    backgroundColor: Colors.light.success + "10",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  trackingText: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 11,
+    color: Colors.light.success,
+  },
+});
+
 function getTierIcon(name: string): string {
   if (name === "Diamond") return "diamond";
   if (name === "Gold") return "star";
@@ -1325,7 +1795,8 @@ const modalStyles = StyleSheet.create({
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
-  const { balance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, autoReimburse, userName, totalUnreimbursed } = useHSA();
+  const { balance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, autoReimburse, userName, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard } = useHSA();
+  const [showAddCard, setShowAddCard] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [showAddReceipt, setShowAddReceipt] = useState(false);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
@@ -1386,10 +1857,16 @@ export default function AccountsScreen() {
 
         {activeTab === 3 && (
           <Animated.View entering={Platform.OS !== "web" ? FadeInDown.duration(400) : undefined}>
+            <LinkedCardsSection
+              cards={linkedCards}
+              onAddCard={() => setShowAddCard(true)}
+              onRemoveCard={removeLinkedCard}
+              onSetDefault={setDefaultCard}
+            />
+
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Account Details</Text>
               <SettingsRow icon="user" label="Account Holder" value={userName || "Alex"} />
-              <SettingsRow icon="credit-card" label="HSA Card" value="****4829" />
               <SettingsRow icon="calendar" label="Plan Year" value="2026" />
               <SettingsRow icon="shield" label="Account Type" value="Individual" />
             </View>
@@ -1415,6 +1892,12 @@ export default function AccountsScreen() {
         visible={showAddReceipt}
         onClose={() => setShowAddReceipt(false)}
         onAdd={addReceipt}
+      />
+
+      <AddCardModal
+        visible={showAddCard}
+        onClose={() => setShowAddCard(false)}
+        onAdd={addLinkedCard}
       />
     </View>
   );
