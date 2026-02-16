@@ -17,7 +17,7 @@ export interface Receipt {
   amount: number;
   date: string;
   category: string;
-  status: "pending" | "submitted" | "approved" | "denied";
+  status: "pending" | "unreimbursed" | "paid";
   provider?: string;
 }
 
@@ -79,9 +79,11 @@ export interface HSAContextValue {
   hasCompletedOnboarding: boolean;
   isLoading: boolean;
   userName: string;
+  totalUnreimbursed: number;
   addContribution: (amount: number) => void;
   addReceipt: (receipt: Omit<Receipt, "id">) => void;
-  submitReimbursement: (receiptId: string) => void;
+  markReceiptUnreimbursed: (receiptId: string) => void;
+  autoReimburse: (amount: number) => void;
   toggleAutoInvest: () => void;
   toggleFirstDollar: () => void;
   toggleRoundUp: () => void;
@@ -109,18 +111,18 @@ const defaultTransactions: Transaction[] = [
 
 const defaultReceipts: Receipt[] = [
   { id: "r1", title: "Annual Physical", amount: 150, date: "2026-02-10", category: "medical", status: "pending", provider: "Dr. Johnson" },
-  { id: "r2", title: "Prescription - Amoxicillin", amount: 25, date: "2026-02-05", category: "pharmacy", status: "approved", provider: "CVS Pharmacy" },
-  { id: "r3", title: "Eye Exam", amount: 89, date: "2026-01-20", category: "vision", status: "submitted", provider: "Zenni Optical" },
-  { id: "r4", title: "Dental Cleaning", amount: 120, date: "2026-01-08", category: "dental", status: "approved", provider: "Bright Smile Dental" },
-  { id: "r5", title: "Therapy Session", amount: 175, date: "2026-01-14", category: "mental health", status: "approved", provider: "Dr. Lee" },
-  { id: "r6", title: "Lab Work - Blood Panel", amount: 210, date: "2025-12-18", category: "medical", status: "approved", provider: "Quest Diagnostics" },
-  { id: "r7", title: "Prescription - Lisinopril", amount: 15, date: "2025-12-10", category: "pharmacy", status: "approved", provider: "Walgreens" },
-  { id: "r8", title: "Urgent Care Visit", amount: 250, date: "2025-12-02", category: "medical", status: "denied", provider: "MinuteClinic" },
-  { id: "r9", title: "Contact Lenses", amount: 185, date: "2025-11-22", category: "vision", status: "approved", provider: "1-800 Contacts" },
-  { id: "r10", title: "Flu Shot", amount: 0, date: "2025-11-05", category: "medical", status: "approved", provider: "CVS Pharmacy" },
-  { id: "r11", title: "Physical Therapy", amount: 95, date: "2025-11-12", category: "medical", status: "approved", provider: "PT Solutions" },
-  { id: "r12", title: "Prescription - Atorvastatin", amount: 22, date: "2025-10-28", category: "pharmacy", status: "approved", provider: "CVS Pharmacy" },
-  { id: "r13", title: "Dermatology Consult", amount: 180, date: "2025-10-15", category: "medical", status: "submitted", provider: "SkinCare Clinic" },
+  { id: "r2", title: "Prescription - Amoxicillin", amount: 25, date: "2026-02-05", category: "pharmacy", status: "unreimbursed", provider: "CVS Pharmacy" },
+  { id: "r3", title: "Eye Exam", amount: 89, date: "2026-01-20", category: "vision", status: "unreimbursed", provider: "Zenni Optical" },
+  { id: "r4", title: "Dental Cleaning", amount: 120, date: "2026-01-08", category: "dental", status: "paid", provider: "Bright Smile Dental" },
+  { id: "r5", title: "Therapy Session", amount: 175, date: "2026-01-14", category: "mental health", status: "unreimbursed", provider: "Dr. Lee" },
+  { id: "r6", title: "Lab Work - Blood Panel", amount: 210, date: "2025-12-18", category: "medical", status: "unreimbursed", provider: "Quest Diagnostics" },
+  { id: "r7", title: "Prescription - Lisinopril", amount: 15, date: "2025-12-10", category: "pharmacy", status: "paid", provider: "Walgreens" },
+  { id: "r8", title: "Urgent Care Visit", amount: 250, date: "2025-12-02", category: "medical", status: "unreimbursed", provider: "MinuteClinic" },
+  { id: "r9", title: "Contact Lenses", amount: 185, date: "2025-11-22", category: "vision", status: "unreimbursed", provider: "1-800 Contacts" },
+  { id: "r10", title: "Flu Shot", amount: 0, date: "2025-11-05", category: "medical", status: "paid", provider: "CVS Pharmacy" },
+  { id: "r11", title: "Physical Therapy", amount: 95, date: "2025-11-12", category: "medical", status: "unreimbursed", provider: "PT Solutions" },
+  { id: "r12", title: "Prescription - Atorvastatin", amount: 22, date: "2025-10-28", category: "pharmacy", status: "paid", provider: "CVS Pharmacy" },
+  { id: "r13", title: "Dermatology Consult", amount: 180, date: "2025-10-15", category: "medical", status: "unreimbursed", provider: "SkinCare Clinic" },
 ];
 
 export function HSAProvider({ children }: { children: ReactNode }) {
@@ -186,10 +188,31 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     setReceipts((prev) => [newReceipt, ...prev]);
   };
 
-  const submitReimbursement = (receiptId: string) => {
+  const markReceiptUnreimbursed = (receiptId: string) => {
     setReceipts((prev) =>
-      prev.map((r) => (r.id === receiptId ? { ...r, status: "submitted" as const } : r))
+      prev.map((r) => (r.id === receiptId ? { ...r, status: "unreimbursed" as const } : r))
     );
+  };
+
+  const autoReimburse = (amount: number) => {
+    if (amount <= 0) return;
+    let remaining = amount;
+    setReceipts((prev) => {
+      const sorted = [...prev]
+        .map((r, idx) => ({ ...r, _idx: idx }))
+        .filter((r) => r.status === "unreimbursed")
+        .sort((a, b) => a.date.localeCompare(b.date));
+
+      const updated = [...prev];
+      for (const r of sorted) {
+        if (remaining <= 0) break;
+        if (remaining >= r.amount) {
+          updated[r._idx] = { ...prev[r._idx], status: "paid" as const };
+          remaining -= r.amount;
+        }
+      }
+      return updated;
+    });
   };
 
   const toggleAutoInvest = () => {
@@ -221,6 +244,12 @@ export function HSAProvider({ children }: { children: ReactNode }) {
 
   const cashBalance = balance - investedBalance;
 
+  const totalUnreimbursed = useMemo(() => {
+    return receipts
+      .filter((r) => r.status === "unreimbursed")
+      .reduce((sum, r) => sum + r.amount, 0);
+  }, [receipts]);
+
   const loyaltyPoints = useMemo(() => {
     const loyalty = getLoyaltyTier(balance);
     const multiplier = loyalty.current?.pointsMultiplier ?? 1;
@@ -251,15 +280,17 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       hasCompletedOnboarding,
       isLoading,
       userName,
+      totalUnreimbursed,
       addContribution,
       addReceipt,
-      submitReimbursement,
+      markReceiptUnreimbursed,
+      autoReimburse,
       toggleAutoInvest,
       toggleFirstDollar,
       toggleRoundUp,
       completeOnboarding,
     }),
-    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName]
+    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, totalUnreimbursed]
   );
 
   return <HSAContext.Provider value={value}>{children}</HSAContext.Provider>;
