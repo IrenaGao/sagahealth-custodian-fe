@@ -111,6 +111,16 @@ const defaultReceipts: Receipt[] = [
   { id: "r1", title: "Annual Physical", amount: 150, date: "2026-02-10", category: "medical", status: "pending", provider: "Dr. Johnson" },
   { id: "r2", title: "Prescription - Amoxicillin", amount: 25, date: "2026-02-05", category: "pharmacy", status: "approved", provider: "CVS Pharmacy" },
   { id: "r3", title: "Eye Exam", amount: 89, date: "2026-01-20", category: "vision", status: "submitted", provider: "Zenni Optical" },
+  { id: "r4", title: "Dental Cleaning", amount: 120, date: "2026-01-08", category: "dental", status: "approved", provider: "Bright Smile Dental" },
+  { id: "r5", title: "Therapy Session", amount: 175, date: "2026-01-14", category: "mental health", status: "approved", provider: "Dr. Lee" },
+  { id: "r6", title: "Lab Work - Blood Panel", amount: 210, date: "2025-12-18", category: "medical", status: "approved", provider: "Quest Diagnostics" },
+  { id: "r7", title: "Prescription - Lisinopril", amount: 15, date: "2025-12-10", category: "pharmacy", status: "approved", provider: "Walgreens" },
+  { id: "r8", title: "Urgent Care Visit", amount: 250, date: "2025-12-02", category: "medical", status: "denied", provider: "MinuteClinic" },
+  { id: "r9", title: "Contact Lenses", amount: 185, date: "2025-11-22", category: "vision", status: "approved", provider: "1-800 Contacts" },
+  { id: "r10", title: "Flu Shot", amount: 0, date: "2025-11-05", category: "medical", status: "approved", provider: "CVS Pharmacy" },
+  { id: "r11", title: "Physical Therapy", amount: 95, date: "2025-11-12", category: "medical", status: "approved", provider: "PT Solutions" },
+  { id: "r12", title: "Prescription - Atorvastatin", amount: 22, date: "2025-10-28", category: "pharmacy", status: "approved", provider: "CVS Pharmacy" },
+  { id: "r13", title: "Dermatology Consult", amount: 180, date: "2025-10-15", category: "medical", status: "submitted", provider: "SkinCare Clinic" },
 ];
 
 export function HSAProvider({ children }: { children: ReactNode }) {

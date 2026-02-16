@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -76,6 +76,25 @@ const segStyles = StyleSheet.create({
   },
 });
 
+const categoryConfig: Record<string, { icon: string; color: string; bg: string }> = {
+  medical: { icon: "heart", color: "#C85A54", bg: "#FEF2F0" },
+  pharmacy: { icon: "package", color: "#2E5E3F", bg: "#E8F0E4" },
+  vision: { icon: "eye", color: "#4A8BA8", bg: "#E8F3F8" },
+  dental: { icon: "smile", color: "#D4A574", bg: "#FFF5EC" },
+  "mental health": { icon: "sun", color: "#8B5CF6", bg: "#F3EEFF" },
+};
+
+function getCategoryInfo(cat: string) {
+  return categoryConfig[cat] || { icon: "file-text", color: Colors.light.textMuted, bg: Colors.light.borderLight };
+}
+
+const statusConfig: Record<string, { color: string; bg: string; label: string }> = {
+  pending: { color: Colors.light.accent, bg: Colors.light.accentLight, label: "Pending" },
+  submitted: { color: Colors.light.info, bg: Colors.light.infoLight, label: "Submitted" },
+  approved: { color: Colors.light.success, bg: Colors.light.successLight, label: "Approved" },
+  denied: { color: Colors.light.danger, bg: Colors.light.dangerLight, label: "Denied" },
+};
+
 function ReceiptCard({
   receipt,
   onSubmit,
@@ -83,22 +102,18 @@ function ReceiptCard({
   receipt: Receipt;
   onSubmit: () => void;
 }) {
-  const statusConfig: Record<string, { color: string; bg: string; label: string }> = {
-    pending: { color: Colors.light.accent, bg: Colors.light.accentLight, label: "Pending" },
-    submitted: { color: Colors.light.info, bg: Colors.light.infoLight, label: "Submitted" },
-    approved: { color: Colors.light.success, bg: Colors.light.successLight, label: "Approved" },
-    denied: { color: Colors.light.danger, bg: Colors.light.dangerLight, label: "Denied" },
-  };
-
   const status = statusConfig[receipt.status];
+  const catInfo = getCategoryInfo(receipt.category);
 
   return (
     <View style={rcStyles.card}>
       <View style={rcStyles.top}>
+        <View style={[rcStyles.catIcon, { backgroundColor: catInfo.bg }]}>
+          <Feather name={catInfo.icon as any} size={16} color={catInfo.color} />
+        </View>
         <View style={rcStyles.info}>
           <Text style={rcStyles.title}>{receipt.title}</Text>
           <Text style={rcStyles.provider}>{receipt.provider}</Text>
-          <Text style={rcStyles.date}>{formatDate(receipt.date)}</Text>
         </View>
         <View style={rcStyles.rightCol}>
           <Text style={rcStyles.amount}>${receipt.amount.toFixed(2)}</Text>
@@ -130,50 +145,52 @@ const rcStyles = StyleSheet.create({
   card: {
     backgroundColor: Colors.light.card,
     borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
+    padding: 14,
+    marginBottom: 10,
   },
   top: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    alignItems: "center",
+    gap: 12,
+  },
+  catIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
   },
   info: {
     flex: 1,
-    gap: 2,
+    gap: 1,
   },
   title: {
     fontFamily: "DMSans_600SemiBold",
-    fontSize: 15,
+    fontSize: 14,
     color: Colors.light.text,
   },
   provider: {
     fontFamily: "DMSans_400Regular",
-    fontSize: 13,
-    color: Colors.light.textSecondary,
-  },
-  date: {
-    fontFamily: "DMSans_400Regular",
     fontSize: 12,
     color: Colors.light.textMuted,
-    marginTop: 2,
   },
   rightCol: {
     alignItems: "flex-end",
-    gap: 6,
+    gap: 4,
   },
   amount: {
     fontFamily: "DMSans_700Bold",
-    fontSize: 16,
+    fontSize: 15,
     color: Colors.light.text,
   },
   statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
   },
   statusText: {
     fontFamily: "DMSans_600SemiBold",
-    fontSize: 11,
+    fontSize: 10,
   },
   submitBtn: {
     flexDirection: "row",
@@ -189,6 +206,379 @@ const rcStyles = StyleSheet.create({
     fontFamily: "DMSans_600SemiBold",
     fontSize: 13,
     color: Colors.light.white,
+  },
+});
+
+function CategoryBar({ category, amount, total }: { category: string; amount: number; total: number }) {
+  const catInfo = getCategoryInfo(category);
+  const pct = total > 0 ? (amount / total) * 100 : 0;
+  const label = category.charAt(0).toUpperCase() + category.slice(1);
+  return (
+    <View style={catBarStyles.row}>
+      <View style={catBarStyles.labelRow}>
+        <View style={[catBarStyles.dot, { backgroundColor: catInfo.color }]} />
+        <Text style={catBarStyles.label}>{label}</Text>
+        <Text style={catBarStyles.amount}>${amount.toFixed(0)}</Text>
+      </View>
+      <View style={catBarStyles.track}>
+        <View style={[catBarStyles.fill, { width: `${pct}%`, backgroundColor: catInfo.color }]} />
+      </View>
+    </View>
+  );
+}
+
+const catBarStyles = StyleSheet.create({
+  row: {
+    marginBottom: 14,
+  },
+  labelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 6,
+  },
+  dot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  label: {
+    flex: 1,
+    fontFamily: "DMSans_500Medium",
+    fontSize: 13,
+    color: Colors.light.text,
+  },
+  amount: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 13,
+    color: Colors.light.text,
+  },
+  track: {
+    height: 6,
+    backgroundColor: Colors.light.borderLight,
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  fill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+});
+
+function PeriodToggle({ mode, onChange }: { mode: "monthly" | "yearly"; onChange: (m: "monthly" | "yearly") => void }) {
+  return (
+    <View style={periodStyles.container}>
+      {(["monthly", "yearly"] as const).map((m) => (
+        <Pressable
+          key={m}
+          style={[periodStyles.btn, mode === m && periodStyles.btnActive]}
+          onPress={() => {
+            if (Platform.OS !== "web") Haptics.selectionAsync();
+            onChange(m);
+          }}
+        >
+          <Text style={[periodStyles.text, mode === m && periodStyles.textActive]}>
+            {m === "monthly" ? "Monthly" : "Yearly"}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
+const periodStyles = StyleSheet.create({
+  container: {
+    flexDirection: "row",
+    backgroundColor: Colors.light.borderLight,
+    borderRadius: 8,
+    padding: 2,
+  },
+  btn: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  btnActive: {
+    backgroundColor: Colors.light.card,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  text: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 12,
+    color: Colors.light.textMuted,
+  },
+  textActive: {
+    color: Colors.light.text,
+    fontFamily: "DMSans_600SemiBold",
+  },
+});
+
+function ReceiptsDashboard({
+  receipts,
+  onSubmit,
+  onAddReceipt,
+}: {
+  receipts: Receipt[];
+  onSubmit: (id: string) => void;
+  onAddReceipt: () => void;
+}) {
+  const [periodMode, setPeriodMode] = useState<"monthly" | "yearly">("monthly");
+  const [selectedPeriodIdx, setSelectedPeriodIdx] = useState(0);
+
+  const periods = useMemo(() => {
+    if (periodMode === "monthly") {
+      const monthMap = new Map<string, Receipt[]>();
+      receipts.forEach((r) => {
+        const d = new Date(r.date + "T00:00:00");
+        const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+        if (!monthMap.has(key)) monthMap.set(key, []);
+        monthMap.get(key)!.push(r);
+      });
+      const sorted = [...monthMap.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+      return sorted.map(([key, recs]) => {
+        const [y, m] = key.split("-");
+        const dt = new Date(parseInt(y), parseInt(m) - 1, 1);
+        const label = dt.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+        return { key, label, receipts: recs.sort((a, b) => b.date.localeCompare(a.date)) };
+      });
+    } else {
+      const yearMap = new Map<string, Receipt[]>();
+      receipts.forEach((r) => {
+        const d = new Date(r.date + "T00:00:00");
+        const key = String(d.getFullYear());
+        if (!yearMap.has(key)) yearMap.set(key, []);
+        yearMap.get(key)!.push(r);
+      });
+      const sorted = [...yearMap.entries()].sort((a, b) => b[0].localeCompare(a[0]));
+      return sorted.map(([key, recs]) => ({
+        key,
+        label: key,
+        receipts: recs.sort((a, b) => b.date.localeCompare(a.date)),
+      }));
+    }
+  }, [receipts, periodMode]);
+
+  const currentPeriod = periods[selectedPeriodIdx] || periods[0];
+  const periodReceipts = currentPeriod?.receipts || [];
+
+  const totalSpent = periodReceipts.reduce((s, r) => s + r.amount, 0);
+  const unreimbursed = periodReceipts
+    .filter((r) => r.status === "pending" || r.status === "submitted")
+    .reduce((s, r) => s + r.amount, 0);
+  const reimbursed = periodReceipts
+    .filter((r) => r.status === "approved")
+    .reduce((s, r) => s + r.amount, 0);
+
+  const categoryBreakdown = useMemo(() => {
+    const map = new Map<string, number>();
+    periodReceipts.forEach((r) => {
+      map.set(r.category, (map.get(r.category) || 0) + r.amount);
+    });
+    return [...map.entries()]
+      .map(([cat, amt]) => ({ category: cat, amount: amt }))
+      .sort((a, b) => b.amount - a.amount);
+  }, [periodReceipts]);
+
+  const goLeft = () => {
+    if (Platform.OS !== "web") Haptics.selectionAsync();
+    setSelectedPeriodIdx((i) => Math.min(i + 1, periods.length - 1));
+  };
+  const goRight = () => {
+    if (Platform.OS !== "web") Haptics.selectionAsync();
+    setSelectedPeriodIdx((i) => Math.max(i - 1, 0));
+  };
+
+  if (!currentPeriod) return null;
+
+  return (
+    <Animated.View entering={Platform.OS !== "web" ? FadeInDown.duration(400) : undefined}>
+      <View style={dashStyles.unreimbursedBar}>
+        <View style={dashStyles.unreimbursedLeft}>
+          <Feather name="alert-circle" size={16} color={Colors.light.accent} />
+          <Text style={dashStyles.unreimbursedLabel}>Unreimbursed</Text>
+        </View>
+        <Text style={dashStyles.unreimbursedAmount}>${unreimbursed.toFixed(2)}</Text>
+      </View>
+
+      <View style={dashStyles.periodNav}>
+        <PeriodToggle mode={periodMode} onChange={(m) => { setPeriodMode(m); setSelectedPeriodIdx(0); }} />
+        <Pressable style={dashStyles.addBtn} onPress={() => { if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onAddReceipt(); }}>
+          <Feather name="plus" size={18} color={Colors.light.white} />
+        </Pressable>
+      </View>
+
+      <View style={dashStyles.periodSelector}>
+        <Pressable onPress={goLeft} disabled={selectedPeriodIdx >= periods.length - 1} style={{ opacity: selectedPeriodIdx >= periods.length - 1 ? 0.3 : 1 }}>
+          <Feather name="chevron-left" size={22} color={Colors.light.text} />
+        </Pressable>
+        <Text style={dashStyles.periodLabel}>{currentPeriod.label}</Text>
+        <Pressable onPress={goRight} disabled={selectedPeriodIdx <= 0} style={{ opacity: selectedPeriodIdx <= 0 ? 0.3 : 1 }}>
+          <Feather name="chevron-right" size={22} color={Colors.light.text} />
+        </Pressable>
+      </View>
+
+      <View style={dashStyles.summaryRow}>
+        <View style={dashStyles.summaryCard}>
+          <Text style={dashStyles.summaryLabel}>Total Spent</Text>
+          <Text style={dashStyles.summaryValue}>${totalSpent.toFixed(0)}</Text>
+        </View>
+        <View style={dashStyles.summaryCard}>
+          <Text style={dashStyles.summaryLabel}>Reimbursed</Text>
+          <Text style={[dashStyles.summaryValue, { color: Colors.light.success }]}>${reimbursed.toFixed(0)}</Text>
+        </View>
+        <View style={dashStyles.summaryCard}>
+          <Text style={dashStyles.summaryLabel}>Receipts</Text>
+          <Text style={dashStyles.summaryValue}>{periodReceipts.length}</Text>
+        </View>
+      </View>
+
+      {categoryBreakdown.length > 0 && (
+        <View style={dashStyles.catCard}>
+          <Text style={dashStyles.catTitle}>Spending by Category</Text>
+          {categoryBreakdown.map((c) => (
+            <CategoryBar key={c.category} category={c.category} amount={c.amount} total={totalSpent} />
+          ))}
+        </View>
+      )}
+
+      <View style={dashStyles.receiptListHeader}>
+        <Text style={dashStyles.receiptListTitle}>Receipts</Text>
+        <Text style={dashStyles.receiptCount}>{periodReceipts.length} items</Text>
+      </View>
+      {periodReceipts.length === 0 ? (
+        <View style={dashStyles.emptyState}>
+          <Feather name="file-text" size={36} color={Colors.light.textMuted} />
+          <Text style={dashStyles.emptyTitle}>No receipts this period</Text>
+        </View>
+      ) : (
+        periodReceipts.map((r) => (
+          <ReceiptCard key={r.id} receipt={r} onSubmit={() => onSubmit(r.id)} />
+        ))
+      )}
+    </Animated.View>
+  );
+}
+
+const dashStyles = StyleSheet.create({
+  unreimbursedBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: Colors.light.accentLight,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.accent + "30",
+  },
+  unreimbursedLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  unreimbursedLabel: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+    color: Colors.light.accent,
+  },
+  unreimbursedAmount: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 18,
+    color: Colors.light.accent,
+  },
+  periodNav: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  addBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.light.tint,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  periodSelector: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 20,
+    marginBottom: 16,
+  },
+  periodLabel: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 17,
+    color: Colors.light.text,
+    minWidth: 160,
+    textAlign: "center",
+  },
+  summaryRow: {
+    flexDirection: "row",
+    gap: 10,
+    marginBottom: 16,
+  },
+  summaryCard: {
+    flex: 1,
+    backgroundColor: Colors.light.card,
+    borderRadius: 12,
+    padding: 14,
+    gap: 4,
+    alignItems: "center",
+  },
+  summaryLabel: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 11,
+    color: Colors.light.textMuted,
+  },
+  summaryValue: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 18,
+    color: Colors.light.text,
+  },
+  catCard: {
+    backgroundColor: Colors.light.card,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 16,
+  },
+  catTitle: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 15,
+    color: Colors.light.text,
+    marginBottom: 14,
+  },
+  receiptListHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  receiptListTitle: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 15,
+    color: Colors.light.text,
+  },
+  receiptCount: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    color: Colors.light.textMuted,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 32,
+    gap: 8,
+  },
+  emptyTitle: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 14,
+    color: Colors.light.textMuted,
   },
 });
 
@@ -703,36 +1093,11 @@ export default function AccountsScreen() {
         />
 
         {activeTab === 0 && (
-          <Animated.View entering={Platform.OS !== "web" ? FadeInDown.duration(400) : undefined}>
-            <View style={styles.receiptHeader}>
-              <Text style={styles.sectionTitle}>Your Receipts</Text>
-              <Pressable
-                style={styles.addBtn}
-                onPress={() => {
-                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  setShowAddReceipt(true);
-                }}
-              >
-                <Feather name="plus" size={18} color={Colors.light.white} />
-              </Pressable>
-            </View>
-
-            {receipts.length === 0 ? (
-              <View style={styles.emptyState}>
-                <Feather name="file-text" size={40} color={Colors.light.textMuted} />
-                <Text style={styles.emptyTitle}>No receipts yet</Text>
-                <Text style={styles.emptySubtitle}>Add your medical receipts to track reimbursements</Text>
-              </View>
-            ) : (
-              receipts.map((r) => (
-                <ReceiptCard
-                  key={r.id}
-                  receipt={r}
-                  onSubmit={() => submitReimbursement(r.id)}
-                />
-              ))
-            )}
-          </Animated.View>
+          <ReceiptsDashboard
+            receipts={receipts}
+            onSubmit={submitReimbursement}
+            onAddReceipt={() => setShowAddReceipt(true)}
+          />
         )}
 
         {activeTab === 1 && (
@@ -814,41 +1179,10 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     marginBottom: 20,
   },
-  receiptHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 16,
-  },
   sectionTitle: {
     fontFamily: "DMSans_700Bold",
     fontSize: 17,
     color: Colors.light.text,
-  },
-  addBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Colors.light.tint,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  emptyState: {
-    alignItems: "center",
-    paddingVertical: 40,
-    gap: 8,
-  },
-  emptyTitle: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 16,
-    color: Colors.light.text,
-    marginTop: 8,
-  },
-  emptySubtitle: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 14,
-    color: Colors.light.textMuted,
-    textAlign: "center",
   },
   contribSummary: {
     flexDirection: "row",
