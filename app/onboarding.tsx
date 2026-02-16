@@ -131,7 +131,7 @@ export default function OnboardingScreen() {
         setInvestmentConfirmed(true);
         return;
       }
-      completeOnboarding();
+      completeOnboarding(firstName.trim());
       if (autoInvest) toggleAutoInvest();
       router.replace("/(tabs)");
       return;

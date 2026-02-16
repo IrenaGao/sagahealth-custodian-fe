@@ -77,13 +77,15 @@ export interface HSAContextValue {
   roundUpEnabled: boolean;
   loyaltyPoints: number;
   hasCompletedOnboarding: boolean;
+  isLoading: boolean;
+  userName: string;
   addContribution: (amount: number) => void;
   addReceipt: (receipt: Omit<Receipt, "id">) => void;
   submitReimbursement: (receiptId: string) => void;
   toggleAutoInvest: () => void;
   toggleFirstDollar: () => void;
   toggleRoundUp: () => void;
-  completeOnboarding: () => void;
+  completeOnboarding: (name?: string) => void;
 }
 
 const HSAContext = createContext<HSAContextValue | null>(null);
@@ -122,7 +124,9 @@ export function HSAProvider({ children }: { children: ReactNode }) {
   const [autoInvestEnabled, setAutoInvestEnabled] = useState(true);
   const [firstDollarEnabled, setFirstDollarEnabled] = useState(true);
   const [roundUpEnabled, setRoundUpEnabled] = useState(false);
-  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(true);
+  const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userName, setUserName] = useState("");
 
   useEffect(() => {
     loadData();
@@ -134,11 +138,13 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       if (stored) {
         const data = JSON.parse(stored);
         if (data.hasCompletedOnboarding !== undefined) setHasCompletedOnboarding(data.hasCompletedOnboarding);
+        if (data.userName) setUserName(data.userName);
         if (data.autoInvestEnabled !== undefined) setAutoInvestEnabled(data.autoInvestEnabled);
         if (data.firstDollarEnabled !== undefined) setFirstDollarEnabled(data.firstDollarEnabled);
         if (data.roundUpEnabled !== undefined) setRoundUpEnabled(data.roundUpEnabled);
       }
     } catch {}
+    setIsLoading(false);
   };
 
   const saveData = async (updates: Record<string, unknown>) => {
@@ -197,9 +203,10 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const completeOnboarding = () => {
+  const completeOnboarding = (name?: string) => {
     setHasCompletedOnboarding(true);
-    saveData({ hasCompletedOnboarding: true });
+    if (name) setUserName(name);
+    saveData({ hasCompletedOnboarding: true, ...(name ? { userName: name } : {}) });
   };
 
   const cashBalance = balance - investedBalance;
@@ -232,6 +239,8 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       roundUpEnabled,
       loyaltyPoints,
       hasCompletedOnboarding,
+      isLoading,
+      userName,
       addContribution,
       addReceipt,
       submitReimbursement,
@@ -240,7 +249,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       toggleRoundUp,
       completeOnboarding,
     }),
-    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding]
+    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName]
   );
 
   return <HSAContext.Provider value={value}>{children}</HSAContext.Provider>;

@@ -539,10 +539,20 @@ function useGreeting() {
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, loyaltyPoints } = useHSA();
+  const { balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, loyaltyPoints, userName, hasCompletedOnboarding, isLoading } = useHSA();
   const loyalty = getLoyaltyTier(balance);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const greeting = useGreeting();
+
+  useEffect(() => {
+    if (!isLoading && !hasCompletedOnboarding) {
+      router.replace("/onboarding");
+    }
+  }, [isLoading, hasCompletedOnboarding]);
+
+  if (isLoading || !hasCompletedOnboarding) {
+    return <View style={[styles.container, { paddingTop: insets.top + webTopInset }]} />;
+  }
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
@@ -550,7 +560,7 @@ export default function HomeScreen() {
         <View style={styles.headerLeft}>
           <View style={styles.headerInfo}>
             <View style={styles.nameRow}>
-              <Text style={styles.name}>Alex</Text>
+              <Text style={styles.name}>{userName || "Alex"}</Text>
               {loyalty.current && (
                 <View style={[styles.tierBadge, { backgroundColor: loyalty.current.color + "14", borderColor: loyalty.current.color + "30" }]}>
                   <Ionicons

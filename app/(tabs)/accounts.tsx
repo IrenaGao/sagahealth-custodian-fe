@@ -680,7 +680,7 @@ const modalStyles = StyleSheet.create({
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
-  const { balance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, submitReimbursement } = useHSA();
+  const { balance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, submitReimbursement, userName } = useHSA();
   const [activeTab, setActiveTab] = useState(0);
   const [showAddReceipt, setShowAddReceipt] = useState(false);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
@@ -767,7 +767,7 @@ export default function AccountsScreen() {
           <Animated.View entering={Platform.OS !== "web" ? FadeInDown.duration(400) : undefined}>
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Account Details</Text>
-              <SettingsRow icon="user" label="Account Holder" value="Alex Johnson" />
+              <SettingsRow icon="user" label="Account Holder" value={userName || "Alex"} />
               <SettingsRow icon="credit-card" label="HSA Card" value="****4829" />
               <SettingsRow icon="calendar" label="Plan Year" value="2026" />
               <SettingsRow icon="shield" label="Account Type" value="Individual" />
