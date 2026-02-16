@@ -688,7 +688,7 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? insets.top + 56 : 0}>
       <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
         <View style={styles.topBar}>
           {step > 0 ? (
@@ -708,6 +708,7 @@ export default function OnboardingScreen() {
           showsVerticalScrollIndicator={false}
           contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
           keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="interactive"
         >
           {renderStep()}
         </ScrollView>
