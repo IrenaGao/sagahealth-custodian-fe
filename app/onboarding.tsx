@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { KeyboardAwareScrollViewCompat } from "@/components/KeyboardAwareScrollViewCompat";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import { router } from "expo-router";
@@ -259,28 +260,28 @@ export default function OnboardingScreen() {
             <Text style={styles.stepSubtitle}>Where should we send your Saga debit card?</Text>
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Email</Text>
-              <TextInput style={styles.input} value={email} onChangeText={setEmail} placeholder="you@email.com" placeholderTextColor={Colors.light.textMuted} keyboardType="email-address" autoCapitalize="none" />
+              <TextInput style={styles.input} value={email} onChangeText={(t) => setEmail(t)} placeholder="you@email.com" placeholderTextColor={Colors.light.textMuted} keyboardType="email-address" autoCapitalize="none" autoComplete="off" />
             </View>
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Phone Number</Text>
-              <TextInput style={styles.input} value={phone} onChangeText={(t) => setPhone(formatPhone(t))} placeholder="(555) 555-5555" placeholderTextColor={Colors.light.textMuted} keyboardType="phone-pad" maxLength={14} />
+              <TextInput style={styles.input} value={phone} onChangeText={(t) => setPhone(formatPhone(t))} placeholder="(555) 555-5555" placeholderTextColor={Colors.light.textMuted} keyboardType="phone-pad" maxLength={14} autoComplete="off" />
             </View>
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Street Address</Text>
-              <TextInput style={styles.input} value={street} onChangeText={setStreet} placeholder="123 Main St" placeholderTextColor={Colors.light.textMuted} autoCorrect={false} />
+              <TextInput style={styles.input} value={street} onChangeText={(t) => setStreet(t)} placeholder="123 Main St" placeholderTextColor={Colors.light.textMuted} autoComplete="off" autoCorrect={false} spellCheck={false} />
             </View>
             <View style={styles.rowFields}>
               <View style={[styles.formGroup, { flex: 1 }]}>
                 <Text style={styles.inputLabel}>City</Text>
-                <TextInput style={styles.input} value={city} onChangeText={setCity} placeholder="City" placeholderTextColor={Colors.light.textMuted} />
+                <TextInput style={styles.input} value={city} onChangeText={(t) => setCity(t)} placeholder="City" placeholderTextColor={Colors.light.textMuted} autoComplete="off" />
               </View>
               <View style={[styles.formGroup, { width: 70 }]}>
                 <Text style={styles.inputLabel}>State</Text>
-                <TextInput style={styles.input} value={state} onChangeText={(t) => setState(t.toUpperCase())} placeholder="CA" placeholderTextColor={Colors.light.textMuted} maxLength={2} autoCapitalize="characters" />
+                <TextInput style={styles.input} value={state} onChangeText={(t) => setState(t.toUpperCase())} placeholder="CA" placeholderTextColor={Colors.light.textMuted} maxLength={2} autoCapitalize="characters" autoComplete="off" />
               </View>
               <View style={[styles.formGroup, { width: 100 }]}>
                 <Text style={styles.inputLabel}>Zip</Text>
-                <TextInput style={styles.input} value={zip} onChangeText={setZip} placeholder="90210" placeholderTextColor={Colors.light.textMuted} keyboardType="number-pad" maxLength={5} />
+                <TextInput style={styles.input} value={zip} onChangeText={(t) => setZip(t)} placeholder="90210" placeholderTextColor={Colors.light.textMuted} keyboardType="number-pad" maxLength={5} autoComplete="off" />
               </View>
             </View>
           </Animated.View>
@@ -702,11 +703,10 @@ export default function OnboardingScreen() {
         <View style={styles.backBtn} />
       </View>
 
-      <ScrollView
+      <KeyboardAwareScrollViewCompat
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + bottomPad + 24 }]}
-        keyboardShouldPersistTaps="handled"
-        {...(Platform.OS !== "web" ? { automaticallyAdjustKeyboardInsets: true } : {})}
+        bottomOffset={80}
       >
         {renderStep()}
 
@@ -732,7 +732,7 @@ export default function OnboardingScreen() {
             </Pressable>
           </View>
         )}
-      </ScrollView>
+      </KeyboardAwareScrollViewCompat>
     </View>
   );
 }
