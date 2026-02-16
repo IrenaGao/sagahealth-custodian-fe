@@ -9,7 +9,6 @@ import {
   TextInput,
   ActivityIndicator,
   Switch,
-  KeyboardAvoidingView,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -688,56 +687,53 @@ export default function OnboardingScreen() {
   };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-      <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
-        <View style={styles.topBar}>
-          {step > 0 ? (
-            <Pressable onPress={goBack} style={styles.backBtn}>
-              <Ionicons name="chevron-back" size={24} color={Colors.light.text} />
-            </Pressable>
-          ) : (
-            <View style={styles.backBtn} />
-          )}
-          <View style={styles.progressBarContainer}>
-            <View style={[styles.progressBarFill, { width: `${((step + 1) / TOTAL_STEPS) * 100}%` }]} />
-          </View>
+    <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
+      <View style={styles.topBar}>
+        {step > 0 ? (
+          <Pressable onPress={goBack} style={styles.backBtn}>
+            <Ionicons name="chevron-back" size={24} color={Colors.light.text} />
+          </Pressable>
+        ) : (
           <View style={styles.backBtn} />
-        </View>
-
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
-          keyboardShouldPersistTaps="handled"
-          keyboardDismissMode="interactive"
-          automaticallyAdjustKeyboardInsets
-        >
-          {renderStep()}
-        </ScrollView>
-
-        {showButton && (
-          <View style={[styles.bottomBar, { paddingBottom: insets.bottom + bottomPad }]}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.nextBtn,
-                { opacity: pressed && canContinue() ? 0.9 : 1, transform: [{ scale: pressed && canContinue() ? 0.98 : 1 }] },
-              ]}
-              onPress={goNext}
-              disabled={!canContinue()}
-            >
-              <LinearGradient
-                colors={canContinue() ? [Colors.light.tint, Colors.light.tintDark] : [Colors.light.border, Colors.light.border]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.nextBtnGradient}
-              >
-                <Text style={[styles.nextBtnText, !canContinue() && { color: Colors.light.textMuted }]}>{getButtonText()}</Text>
-                <Feather name="arrow-right" size={18} color={canContinue() ? Colors.light.white : Colors.light.textMuted} />
-              </LinearGradient>
-            </Pressable>
-          </View>
         )}
+        <View style={styles.progressBarContainer}>
+          <View style={[styles.progressBarFill, { width: `${((step + 1) / TOTAL_STEPS) * 100}%` }]} />
+        </View>
+        <View style={styles.backBtn} />
       </View>
-    </KeyboardAvoidingView>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 120 }]}
+        keyboardShouldPersistTaps="handled"
+        {...(Platform.OS !== "web" ? { automaticallyAdjustKeyboardInsets: true } : {})}
+      >
+        {renderStep()}
+      </ScrollView>
+
+      {showButton && (
+        <View style={[styles.bottomBar, { paddingBottom: insets.bottom + bottomPad }]}>
+          <Pressable
+            style={({ pressed }) => [
+              styles.nextBtn,
+              { opacity: pressed && canContinue() ? 0.9 : 1, transform: [{ scale: pressed && canContinue() ? 0.98 : 1 }] },
+            ]}
+            onPress={goNext}
+            disabled={!canContinue()}
+          >
+            <LinearGradient
+              colors={canContinue() ? [Colors.light.tint, Colors.light.tintDark] : [Colors.light.border, Colors.light.border]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={styles.nextBtnGradient}
+            >
+              <Text style={[styles.nextBtnText, !canContinue() && { color: Colors.light.textMuted }]}>{getButtonText()}</Text>
+              <Feather name="arrow-right" size={18} color={canContinue() ? Colors.light.white : Colors.light.textMuted} />
+            </LinearGradient>
+          </Pressable>
+        </View>
+      )}
+    </View>
   );
 }
 
