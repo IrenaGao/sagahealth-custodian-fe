@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
+import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 export interface Transaction {
@@ -178,16 +179,25 @@ export function HSAProvider({ children }: { children: ReactNode }) {
 
   const loadData = async () => {
     try {
-      const stored = await AsyncStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const data = JSON.parse(stored);
-        if (data.hasCompletedOnboarding !== undefined) setHasCompletedOnboarding(data.hasCompletedOnboarding);
-        if (data.userName) setUserName(data.userName);
-        if (data.autoInvestEnabled !== undefined) setAutoInvestEnabled(data.autoInvestEnabled);
-        if (data.firstDollarEnabled !== undefined) setFirstDollarEnabled(data.firstDollarEnabled);
-        if (data.roundUpEnabled !== undefined) setRoundUpEnabled(data.roundUpEnabled);
+      let data: Record<string, unknown> | null = null;
+      if (Platform.OS === "web" && typeof window !== "undefined" && window.localStorage) {
+        const webStored = window.localStorage.getItem(STORAGE_KEY);
+        if (webStored) data = JSON.parse(webStored);
       }
-    } catch {}
+      if (!data) {
+        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        if (stored) data = JSON.parse(stored);
+      }
+      if (data) {
+        if (data.hasCompletedOnboarding !== undefined) setHasCompletedOnboarding(data.hasCompletedOnboarding as boolean);
+        if (data.userName) setUserName(data.userName as string);
+        if (data.autoInvestEnabled !== undefined) setAutoInvestEnabled(data.autoInvestEnabled as boolean);
+        if (data.firstDollarEnabled !== undefined) setFirstDollarEnabled(data.firstDollarEnabled as boolean);
+        if (data.roundUpEnabled !== undefined) setRoundUpEnabled(data.roundUpEnabled as boolean);
+      }
+    } catch (e) {
+      console.warn("Failed to load saved data:", e);
+    }
     setIsLoading(false);
   };
 
@@ -195,8 +205,14 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     try {
       const stored = await AsyncStorage.getItem(STORAGE_KEY);
       const current = stored ? JSON.parse(stored) : {};
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...updates }));
-    } catch {}
+      const merged = JSON.stringify({ ...current, ...updates });
+      await AsyncStorage.setItem(STORAGE_KEY, merged);
+      if (Platform.OS === "web" && typeof window !== "undefined" && window.localStorage) {
+        window.localStorage.setItem(STORAGE_KEY, merged);
+      }
+    } catch (e) {
+      console.warn("Failed to save data:", e);
+    }
   };
 
   const addContribution = (amount: number) => {
