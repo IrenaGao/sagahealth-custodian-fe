@@ -2848,7 +2848,7 @@ const modalStyles = StyleSheet.create({
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ tab?: string }>();
-  const { balance, cashBalance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, addContribution, autoReimburse, userName, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard, linkedBankAccounts, addLinkedBankAccount, removeLinkedBankAccount, setPrimaryBankAccount } = useHSA();
+  const { balance, cashBalance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, addContribution, autoReimburse, userName, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard, linkedBankAccounts, addLinkedBankAccount, removeLinkedBankAccount, setPrimaryBankAccount, logout } = useHSA();
   const [showAddCard, setShowAddCard] = useState(false);
   const [showBankAccounts, setShowBankAccounts] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -2949,6 +2949,30 @@ export default function AccountsScreen() {
               <SettingsRow icon="book" label="Terms of Service" />
               <SettingsRow icon="shield" label="Privacy Policy" />
             </View>
+
+            <Pressable
+              style={({ pressed }) => [styles.logoutBtn, { opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+              onPress={() => {
+                Alert.alert(
+                  "Log Out",
+                  "Are you sure you want to log out? You'll need to complete onboarding again to access your account.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Log Out",
+                      style: "destructive",
+                      onPress: () => {
+                        logout();
+                        if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <Feather name="log-out" size={18} color={Colors.light.danger} />
+              <Text style={styles.logoutBtnText}>Log Out</Text>
+            </Pressable>
           </Animated.View>
         )}
       </ScrollView>
@@ -3002,5 +3026,20 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
+  },
+  logoutBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#FEE2E2",
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginBottom: 16,
+  },
+  logoutBtnText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.danger,
   },
 });

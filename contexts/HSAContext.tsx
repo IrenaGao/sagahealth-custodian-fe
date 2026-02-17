@@ -116,6 +116,7 @@ export interface HSAContextValue {
   buyProportional: (amount: number) => boolean;
   sellProportional: (amount: number) => boolean;
   updatePortfolioMix: (newAllocations: { id: string; allocation: number }[]) => void;
+  logout: () => void;
 }
 
 const HSAContext = createContext<HSAContextValue | null>(null);
@@ -441,6 +442,27 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     saveData({ hasCompletedOnboarding: true, ...(name ? { userName: name } : {}) });
   };
 
+  const logout = async () => {
+    try {
+      await AsyncStorage.removeItem(STORAGE_KEY);
+    } catch (e) {
+      console.warn("Failed to clear storage:", e);
+    }
+    setHasCompletedOnboarding(false);
+    setUserName("");
+    setBalance(12550);
+    setInvestedBalance(8550);
+    setContributionYTD(2000);
+    setTransactions(defaultTransactions);
+    setReceipts(defaultReceipts);
+    setHoldings(defaultHoldings);
+    setAutoInvestEnabled(true);
+    setFirstDollarEnabled(true);
+    setRoundUpEnabled(false);
+    setLinkedCards([{ id: "lc1", type: "visa", last4: "4829", label: "Chase Sapphire", isDefault: true }]);
+    setLinkedBankAccounts([{ id: "ba1", bankName: "Chase", accountType: "checking", last4: "7842", isPrimary: true }]);
+  };
+
   const cashBalance = balance - investedBalance;
 
   const totalUnreimbursed = useMemo(() => {
@@ -500,6 +522,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       buyProportional,
       sellProportional,
       updatePortfolioMix,
+      logout,
     }),
     [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, totalUnreimbursed, linkedCards, linkedBankAccounts]
   );
