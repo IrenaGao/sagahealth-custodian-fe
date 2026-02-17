@@ -547,20 +547,21 @@ function TradeModal({
   onClose,
   holdings,
   cashBalance,
-  onBuy,
-  onSell,
+  investedBalance,
+  onBuyProportional,
+  onSellProportional,
   onChangeMix,
 }: {
   visible: boolean;
   onClose: () => void;
   holdings: InvestmentHolding[];
   cashBalance: number;
-  onBuy: (holdingId: string, amount: number) => boolean;
-  onSell: (holdingId: string, amount: number) => boolean;
+  investedBalance: number;
+  onBuyProportional: (amount: number) => boolean;
+  onSellProportional: (amount: number) => boolean;
   onChangeMix: (allocations: { id: string; allocation: number }[]) => void;
 }) {
   const [tradeMode, setTradeMode] = useState<TradeMode>("buy");
-  const [selectedHolding, setSelectedHolding] = useState<string>(holdings[0]?.id || "");
   const [amountText, setAmountText] = useState("");
   const [step, setStep] = useState<"form" | "confirm" | "success">("form");
   const [mixAllocations, setMixAllocations] = useState<Record<string, number>>(() => {
@@ -568,10 +569,10 @@ function TradeModal({
     holdings.forEach((h) => { obj[h.id] = h.allocation; });
     return obj;
   });
+  const amountInputRef = React.useRef<TextInput>(null);
 
   const amount = parseFloat(amountText) || 0;
-  const holding = holdings.find((h) => h.id === selectedHolding);
-  const maxAmount = tradeMode === "buy" ? cashBalance : (holding?.balance || 0);
+  const maxAmount = tradeMode === "buy" ? cashBalance : investedBalance;
   const isValid = tradeMode === "mix" ? Object.values(mixAllocations).reduce((s, v) => s + v, 0) === 100 : (amount > 0 && amount <= maxAmount);
   const mixTotal = Object.values(mixAllocations).reduce((s, v) => s + v, 0);
 
@@ -581,7 +582,6 @@ function TradeModal({
       setAmountText("");
       setStep("form");
       setTradeMode("buy");
-      setSelectedHolding(holdings[0]?.id || "");
       const obj: Record<string, number> = {};
       holdings.forEach((h) => { obj[h.id] = h.allocation; });
       setMixAllocations(obj);
@@ -594,7 +594,7 @@ function TradeModal({
       onChangeMix(Object.entries(mixAllocations).map(([id, allocation]) => ({ id, allocation })));
       setStep("success");
     } else {
-      const success = tradeMode === "buy" ? onBuy(selectedHolding, amount) : onSell(selectedHolding, amount);
+      const success = tradeMode === "buy" ? onBuyProportional(amount) : onSellProportional(amount);
       if (success) {
         setStep("success");
       } else {
@@ -632,7 +632,7 @@ function TradeModal({
               <Text style={tradeStyles.successDesc}>
                 {tradeMode === "mix"
                   ? "Your portfolio allocation has been updated"
-                  : `${tradeMode === "buy" ? "Bought" : "Sold"} $${amount.toFixed(2)} of ${holding?.ticker}`}
+                  : `${tradeMode === "buy" ? "Invested" : "Sold"} $${amount.toFixed(2)} across your portfolio`}
               </Text>
               <Pressable style={tradeStyles.doneBtn} onPress={resetAndClose}>
                 <Text style={tradeStyles.doneBtnText}>Done</Text>
@@ -673,8 +673,8 @@ function TradeModal({
                     </View>
                     <View style={tradeStyles.confirmDivider} />
                     <View style={tradeStyles.confirmRow}>
-                      <Text style={tradeStyles.confirmLabel}>Asset</Text>
-                      <Text style={tradeStyles.confirmValue}>{holding?.ticker}</Text>
+                      <Text style={tradeStyles.confirmLabel}>Distribution</Text>
+                      <Text style={tradeStyles.confirmValue}>Proportional</Text>
                     </View>
                     <View style={tradeStyles.confirmDivider} />
                     <View style={tradeStyles.confirmRow}>
@@ -754,30 +754,11 @@ function TradeModal({
                 </>
               ) : (
                 <>
-                  <Text style={tradeStyles.fieldLabel}>Select Asset</Text>
-                  <View style={tradeStyles.holdingPicker}>
-                    {holdings.map((h) => (
-                      <Pressable
-                        key={h.id}
-                        style={[tradeStyles.holdingChip, selectedHolding === h.id && tradeStyles.holdingChipActive]}
-                        onPress={() => {
-                          setSelectedHolding(h.id);
-                          setAmountText("");
-                          if (Platform.OS !== "web") Haptics.selectionAsync();
-                        }}
-                      >
-                        <View style={[tradeStyles.holdingDot, { backgroundColor: h.color }]} />
-                        <Text style={[tradeStyles.holdingChipText, selectedHolding === h.id && tradeStyles.holdingChipTextActive]}>
-                          {h.ticker}
-                        </Text>
-                      </Pressable>
-                    ))}
-                  </View>
-
                   <Text style={tradeStyles.fieldLabel}>Amount</Text>
                   <View style={tradeStyles.amountInputRow}>
                     <Text style={tradeStyles.dollarSign}>$</Text>
                     <TextInput
+                      ref={amountInputRef}
                       style={tradeStyles.amountInput}
                       value={amountText}
                       onChangeText={(text) => setAmountText(text.replace(/[^0-9.]/g, ""))}
@@ -790,15 +771,25 @@ function TradeModal({
                   <Text style={tradeStyles.availableText}>
                     {tradeMode === "buy"
                       ? `Available cash: $${cashBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : `${holding?.ticker} balance: $${(holding?.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                      : `Portfolio balance: $${investedBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                   </Text>
 
                   <View style={tradeStyles.quickRow}>
-                    {[0.25, 0.5, 0.75, 1].map((pct) => (
+                    {[0.25, 0.5, 0.75].map((pct) => (
                       <Pressable key={pct} style={tradeStyles.quickBtn} onPress={() => handleQuickAmount(pct)}>
-                        <Text style={tradeStyles.quickBtnText}>{pct === 1 ? "Max" : `${pct * 100}%`}</Text>
+                        <Text style={tradeStyles.quickBtnText}>{`${pct * 100}%`}</Text>
                       </Pressable>
                     ))}
+                    <Pressable
+                      style={tradeStyles.quickBtn}
+                      onPress={() => {
+                        setAmountText("");
+                        amountInputRef.current?.focus();
+                        if (Platform.OS !== "web") Haptics.selectionAsync();
+                      }}
+                    >
+                      <Text style={tradeStyles.quickBtnText}>Custom</Text>
+                    </Pressable>
                   </View>
 
                   <Pressable
@@ -1149,8 +1140,8 @@ export default function InvestmentsScreen() {
     holdings,
     autoInvestEnabled,
     toggleAutoInvest,
-    buyHolding,
-    sellHolding,
+    buyProportional,
+    sellProportional,
     updatePortfolioMix,
   } = useHSA();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
@@ -1282,8 +1273,9 @@ export default function InvestmentsScreen() {
         onClose={() => setTradeModalVisible(false)}
         holdings={holdings}
         cashBalance={cashBalance}
-        onBuy={buyHolding}
-        onSell={sellHolding}
+        investedBalance={investedBalance}
+        onBuyProportional={buyProportional}
+        onSellProportional={sellProportional}
         onChangeMix={updatePortfolioMix}
       />
     </View>

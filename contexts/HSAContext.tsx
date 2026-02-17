@@ -114,6 +114,8 @@ export interface HSAContextValue {
   completeOnboarding: (name?: string) => void;
   buyHolding: (holdingId: string, amount: number) => boolean;
   sellHolding: (holdingId: string, amount: number) => boolean;
+  buyProportional: (amount: number) => boolean;
+  sellProportional: (amount: number) => boolean;
   updatePortfolioMix: (newAllocations: { id: string; allocation: number }[]) => void;
 }
 
@@ -386,6 +388,51 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
+  const buyProportional = (amount: number): boolean => {
+    const cash = balance - investedBalance;
+    if (amount <= 0 || amount > cash) return false;
+    setInvestedBalance((prev) => prev + amount);
+    setHoldings((prev) => {
+      const totalInvested = prev.reduce((s, h) => s + h.balance, 0) + amount;
+      return prev.map((h) => {
+        const addAmount = amount * (h.allocation / 100);
+        const newBalance = h.balance + addAmount;
+        return { ...h, balance: newBalance, allocation: Math.round((newBalance / totalInvested) * 100) };
+      });
+    });
+    const today = new Date().toISOString().split("T")[0];
+    const txId = "t" + Date.now().toString() + Math.random().toString(36).substr(2, 4);
+    setTransactions((prev) => [
+      { id: txId, type: "investment", amount: -amount, description: "Buy (proportional)", date: today, category: "investment" },
+      ...prev,
+    ]);
+    return true;
+  };
+
+  const sellProportional = (amount: number): boolean => {
+    const totalInvested = holdings.reduce((s, h) => s + h.balance, 0);
+    if (amount <= 0 || amount > totalInvested) return false;
+    setInvestedBalance((prev) => prev - amount);
+    setHoldings((prev) => {
+      const newTotal = totalInvested - amount;
+      if (newTotal <= 0) {
+        return prev.map((h) => ({ ...h, balance: 0 }));
+      }
+      return prev.map((h) => {
+        const sellAmount = amount * (h.allocation / 100);
+        const newBalance = Math.max(0, h.balance - sellAmount);
+        return { ...h, balance: newBalance, allocation: Math.round((newBalance / newTotal) * 100) };
+      });
+    });
+    const today = new Date().toISOString().split("T")[0];
+    const txId = "t" + Date.now().toString() + Math.random().toString(36).substr(2, 4);
+    setTransactions((prev) => [
+      { id: txId, type: "investment", amount, description: "Sell (proportional)", date: today, category: "investment" },
+      ...prev,
+    ]);
+    return true;
+  };
+
   const updatePortfolioMix = (newAllocations: { id: string; allocation: number }[]) => {
     const totalInvested = holdings.reduce((s, h) => s + h.balance, 0);
     if (totalInvested <= 0) return;
@@ -461,6 +508,8 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       completeOnboarding,
       buyHolding,
       sellHolding,
+      buyProportional,
+      sellProportional,
       updatePortfolioMix,
     }),
     [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, totalUnreimbursed, linkedCards, linkedBankAccounts]
