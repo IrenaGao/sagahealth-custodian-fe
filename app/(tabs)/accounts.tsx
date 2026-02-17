@@ -14,7 +14,7 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, router } from "expo-router";
 import Colors from "@/constants/colors";
 import { useHSA, Receipt, LinkedCard, LinkedBankAccount, getLoyaltyTier, loyaltyTiers, LoyaltyTier } from "@/contexts/HSAContext";
 
@@ -1323,10 +1323,12 @@ function SettingsRow({
   icon,
   label,
   value,
+  onPress,
 }: {
   icon: string;
   label: string;
   value?: string;
+  onPress?: () => void;
 }) {
   return (
     <Pressable
@@ -1334,6 +1336,7 @@ function SettingsRow({
         settStyles.row,
         { opacity: pressed ? 0.7 : 1 },
       ]}
+      onPress={onPress}
     >
       <View style={settStyles.left}>
         <Feather name={icon as any} size={18} color={Colors.light.textSecondary} />
@@ -2940,7 +2943,7 @@ export default function AccountsScreen() {
               <Text style={styles.sectionTitle}>Preferences</Text>
               <SettingsRow icon="bell" label="Notifications" />
               <SettingsRow icon="lock" label="Security" />
-              <SettingsRow icon="file-text" label="Documents" />
+              <SettingsRow icon="file-text" label="Documents" onPress={() => router.push("/documents")} />
               <SettingsRow icon="help-circle" label="Help & Support" />
             </View>
 
