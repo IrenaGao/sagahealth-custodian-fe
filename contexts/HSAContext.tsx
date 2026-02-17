@@ -113,6 +113,7 @@ export interface HSAContextValue {
   completeOnboarding: (name?: string) => void;
   buyHolding: (holdingId: string, amount: number) => boolean;
   sellHolding: (holdingId: string, amount: number) => boolean;
+  updatePortfolioMix: (newAllocations: { id: string; allocation: number }[]) => void;
 }
 
 const HSAContext = createContext<HSAContextValue | null>(null);
@@ -369,6 +370,19 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
+  const updatePortfolioMix = (newAllocations: { id: string; allocation: number }[]) => {
+    const totalInvested = holdings.reduce((s, h) => s + h.balance, 0);
+    if (totalInvested <= 0) return;
+    setHoldings((prev) =>
+      prev.map((h) => {
+        const newAlloc = newAllocations.find((a) => a.id === h.id);
+        if (!newAlloc) return h;
+        const newBalance = Math.round(totalInvested * (newAlloc.allocation / 100) * 100) / 100;
+        return { ...h, allocation: newAlloc.allocation, balance: newBalance };
+      })
+    );
+  };
+
   const completeOnboarding = (name?: string) => {
     setHasCompletedOnboarding(true);
     if (name) setUserName(name);
@@ -431,6 +445,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       completeOnboarding,
       buyHolding,
       sellHolding,
+      updatePortfolioMix,
     }),
     [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, totalUnreimbursed, linkedCards, linkedBankAccounts]
   );
