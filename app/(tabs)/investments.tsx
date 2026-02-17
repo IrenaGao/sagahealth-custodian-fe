@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback } from "react";
+import React, { useState, useMemo, useCallback, useRef } from "react";
 import {
   StyleSheet,
   Text,
@@ -569,7 +569,7 @@ function TradeModal({
     holdings.forEach((h) => { obj[h.id] = h.allocation; });
     return obj;
   });
-  const amountInputRef = React.useRef<TextInput>(null);
+  const amountInputRef = useRef<TextInput>(null);
 
   const amount = parseFloat(amountText) || 0;
   const maxAmount = tradeMode === "buy" ? cashBalance : investedBalance;
