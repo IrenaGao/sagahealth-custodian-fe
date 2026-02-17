@@ -129,7 +129,7 @@ export default function DocumentsScreen() {
   return (
     <View style={[s.container, { paddingTop: insets.top + webTopInset }]}>
       <View style={s.header}>
-        <Pressable onPress={() => router.back()} hitSlop={12} style={s.backBtn}>
+        <Pressable onPress={() => { if (router.canGoBack()) { router.back(); } else { router.replace("/(tabs)/accounts"); } }} hitSlop={12} style={s.backBtn}>
           <Feather name="arrow-left" size={22} color={Colors.light.text} />
         </Pressable>
         <Text style={s.headerTitle}>Documents</Text>
