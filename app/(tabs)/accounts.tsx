@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useCallback } from "react";
 import {
   StyleSheet,
   Text,
@@ -14,6 +14,7 @@ import { Ionicons, Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
+import { useLocalSearchParams } from "expo-router";
 import Colors from "@/constants/colors";
 import { useHSA, Receipt, LinkedCard, LinkedBankAccount, getLoyaltyTier, loyaltyTiers, LoyaltyTier } from "@/contexts/HSAContext";
 
@@ -2275,11 +2276,21 @@ const modalStyles = StyleSheet.create({
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
-  const { balance, cashBalance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, autoReimburse, userName, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard, linkedBankAccounts, addLinkedBankAccount, removeLinkedBankAccount, setPrimaryBankAccount } = useHSA();
+  const params = useLocalSearchParams<{ tab?: string }>();
+  const { balance, cashBalance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, addContribution, autoReimburse, userName, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard, linkedBankAccounts, addLinkedBankAccount, removeLinkedBankAccount, setPrimaryBankAccount } = useHSA();
   const [showAddCard, setShowAddCard] = useState(false);
   const [showBankAccounts, setShowBankAccounts] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [showAddReceipt, setShowAddReceipt] = useState(false);
+
+  useEffect(() => {
+    if (params.tab) {
+      const tabIdx = parseInt(params.tab);
+      if (!isNaN(tabIdx) && tabIdx >= 0 && tabIdx <= 3) {
+        setActiveTab(tabIdx);
+      }
+    }
+  }, [params.tab]);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
 
   const contributions = transactions.filter((t) => t.type === "contribution");

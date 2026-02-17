@@ -650,7 +650,7 @@ export default function HomeScreen() {
               label="Contribute"
               color={Colors.light.tint}
               bgColor={Colors.light.tintLight}
-              onPress={() => {}}
+              onPress={() => router.push({ pathname: "/(tabs)/accounts", params: { tab: "1" } })}
             />
             <QuickAction
               icon="camera"
