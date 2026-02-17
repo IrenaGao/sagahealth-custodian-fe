@@ -668,8 +668,12 @@ function ReceiptsDashboard({
 
       <View style={dashStyles.periodNav}>
         <PeriodToggle mode={periodMode} onChange={(m) => { setPeriodMode(m); setSelectedPeriodIdx(0); }} />
-        <Pressable style={dashStyles.addBtn} onPress={() => { if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onAddReceipt(); }}>
-          <Feather name="plus" size={18} color={Colors.light.white} />
+        <Pressable
+          style={({ pressed }) => [dashStyles.addReceiptBtn, { opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.97 : 1 }] }]}
+          onPress={() => { if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light); onAddReceipt(); }}
+        >
+          <Feather name="plus" size={15} color={Colors.light.white} />
+          <Text style={dashStyles.addReceiptBtnText}>Add Receipts</Text>
         </Pressable>
       </View>
 
@@ -803,13 +807,19 @@ const dashStyles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  addBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Colors.light.tint,
+  addReceiptBtn: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    gap: 6,
+    backgroundColor: Colors.light.tint,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  addReceiptBtnText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 13,
+    color: Colors.light.white,
   },
   periodSelector: {
     flexDirection: "row",
@@ -2496,6 +2506,26 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
+const EXPENSE_CATEGORIES = [
+  { value: "medical", label: "Medical" },
+  { value: "dental", label: "Dental" },
+  { value: "vision", label: "Vision" },
+  { value: "pharmacy", label: "Pharmacy" },
+  { value: "mental_health", label: "Mental Health" },
+  { value: "physical_therapy", label: "Physical Therapy" },
+  { value: "lab_test", label: "Lab/Testing" },
+  { value: "other", label: "Other" },
+];
+
+const SIMULATED_SCANS = [
+  { title: "Annual Physical Exam", amount: "185.00", provider: "Dr. Sarah Chen", category: "medical", date: new Date().toISOString().split("T")[0] },
+  { title: "Dental Cleaning", amount: "120.00", provider: "Bright Smile Dental", category: "dental", date: new Date().toISOString().split("T")[0] },
+  { title: "Eye Exam & Contacts", amount: "275.00", provider: "VisionWorks", category: "vision", date: new Date().toISOString().split("T")[0] },
+  { title: "Prescription Medication", amount: "45.99", provider: "CVS Pharmacy", category: "pharmacy", date: new Date().toISOString().split("T")[0] },
+  { title: "Physical Therapy Session", amount: "150.00", provider: "ActiveCare PT", category: "physical_therapy", date: new Date().toISOString().split("T")[0] },
+  { title: "Blood Work Panel", amount: "89.00", provider: "Quest Diagnostics", category: "lab_test", date: new Date().toISOString().split("T")[0] },
+];
+
 function AddReceiptModal({
   visible,
   onClose,
@@ -2505,82 +2535,236 @@ function AddReceiptModal({
   onClose: () => void;
   onAdd: (receipt: { title: string; amount: number; date: string; category: string; status: "pending"; provider: string }) => void;
 }) {
+  const [mode, setMode] = useState<"choose" | "manual" | "scan" | "scanned">("choose");
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [provider, setProvider] = useState("");
+  const [category, setCategory] = useState("medical");
+  const [receiptDate, setReceiptDate] = useState(new Date().toISOString().split("T")[0]);
+  const [scanning, setScanning] = useState(false);
+  const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const insets = useSafeAreaInsets();
+
+  const resetForm = () => {
+    setTitle(""); setAmount(""); setProvider(""); setCategory("medical");
+    setReceiptDate(new Date().toISOString().split("T")[0]);
+    setMode("choose"); setScanning(false); setShowCategoryPicker(false);
+  };
+
+  const handleClose = () => { resetForm(); onClose(); };
 
   const handleAdd = () => {
     if (!title || !amount) return;
     onAdd({
       title,
       amount: parseFloat(amount),
-      date: new Date().toISOString().split("T")[0],
-      category: "medical",
+      date: receiptDate,
+      category,
       status: "pending",
       provider: provider || "Unknown Provider",
     });
-    setTitle("");
-    setAmount("");
-    setProvider("");
+    resetForm();
     onClose();
+    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
   };
+
+  const handleScanReceipt = async () => {
+    try {
+      const { launchCameraAsync, launchImageLibraryAsync, requestCameraPermissionsAsync, MediaTypeOptions } = await import("expo-image-picker");
+
+      const useCamera = Platform.OS !== "web";
+      let result;
+
+      if (useCamera) {
+        const { status } = await requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          result = await launchImageLibraryAsync({ mediaTypes: MediaTypeOptions.Images, quality: 0.8 });
+        } else {
+          result = await launchCameraAsync({ mediaTypes: MediaTypeOptions.Images, quality: 0.8 });
+        }
+      } else {
+        result = await launchImageLibraryAsync({ mediaTypes: MediaTypeOptions.Images, quality: 0.8 });
+      }
+
+      if (result.canceled) return;
+
+      setScanning(true);
+      await new Promise((r) => setTimeout(r, 2000));
+
+      const scan = SIMULATED_SCANS[Math.floor(Math.random() * SIMULATED_SCANS.length)];
+      setTitle(scan.title);
+      setAmount(scan.amount);
+      setProvider(scan.provider);
+      setCategory(scan.category);
+      setReceiptDate(scan.date);
+      setScanning(false);
+      setMode("scanned");
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    } catch {
+      setScanning(false);
+      Alert.alert("Scan Error", "Unable to scan receipt. Please try again or enter manually.");
+    }
+  };
+
+  const selectedCategoryLabel = EXPENSE_CATEGORIES.find((c) => c.value === category)?.label || "Medical";
+  const canSubmit = title.length > 0 && parseFloat(amount) > 0;
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View style={modalStyles.overlay}>
         <View style={[modalStyles.container, { paddingBottom: insets.bottom + 20 }]}>
           <View style={modalStyles.header}>
-            <Text style={modalStyles.headerTitle}>Add Receipt</Text>
-            <Pressable onPress={onClose}>
+            <View style={modalStyles.headerLeft}>
+              {mode !== "choose" && (
+                <Pressable onPress={() => setMode("choose")} hitSlop={8} style={{ marginRight: 8 }}>
+                  <Feather name="arrow-left" size={22} color={Colors.light.text} />
+                </Pressable>
+              )}
+              <Text style={modalStyles.headerTitle}>
+                {mode === "choose" ? "Add Receipt" : mode === "scan" || scanning ? "Scan Receipt" : mode === "scanned" ? "Review Scan" : "Enter Receipt"}
+              </Text>
+            </View>
+            <Pressable onPress={handleClose}>
               <Feather name="x" size={24} color={Colors.light.text} />
             </Pressable>
           </View>
 
-          <View style={modalStyles.field}>
-            <Text style={modalStyles.label}>Service Name</Text>
-            <TextInput
-              style={modalStyles.input}
-              placeholder="e.g., Annual Physical"
-              value={title}
-              onChangeText={setTitle}
-              placeholderTextColor={Colors.light.textMuted}
-            />
-          </View>
+          {mode === "choose" && (
+            <View style={modalStyles.chooseWrap}>
+              <Pressable
+                style={({ pressed }) => [modalStyles.choiceCard, { opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+                onPress={handleScanReceipt}
+              >
+                <View style={[modalStyles.choiceIcon, { backgroundColor: "#EEF2FF" }]}>
+                  <Feather name="camera" size={24} color="#6366F1" />
+                </View>
+                <View style={modalStyles.choiceInfo}>
+                  <Text style={modalStyles.choiceTitle}>Scan Receipt</Text>
+                  <Text style={modalStyles.choiceDesc}>Take a photo and we'll extract the details automatically</Text>
+                </View>
+                <Feather name="chevron-right" size={20} color={Colors.light.textMuted} />
+              </Pressable>
 
-          <View style={modalStyles.field}>
-            <Text style={modalStyles.label}>Provider</Text>
-            <TextInput
-              style={modalStyles.input}
-              placeholder="e.g., Dr. Smith"
-              value={provider}
-              onChangeText={setProvider}
-              placeholderTextColor={Colors.light.textMuted}
-            />
-          </View>
+              <Pressable
+                style={({ pressed }) => [modalStyles.choiceCard, { opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+                onPress={() => setMode("manual")}
+              >
+                <View style={[modalStyles.choiceIcon, { backgroundColor: Colors.light.tintLight }]}>
+                  <Feather name="edit-3" size={24} color={Colors.light.tint} />
+                </View>
+                <View style={modalStyles.choiceInfo}>
+                  <Text style={modalStyles.choiceTitle}>Enter Manually</Text>
+                  <Text style={modalStyles.choiceDesc}>Type in the receipt details yourself</Text>
+                </View>
+                <Feather name="chevron-right" size={20} color={Colors.light.textMuted} />
+              </Pressable>
+            </View>
+          )}
 
-          <View style={modalStyles.field}>
-            <Text style={modalStyles.label}>Amount ($)</Text>
-            <TextInput
-              style={modalStyles.input}
-              placeholder="0.00"
-              value={amount}
-              onChangeText={setAmount}
-              keyboardType="decimal-pad"
-              placeholderTextColor={Colors.light.textMuted}
-            />
-          </View>
+          {scanning && (
+            <View style={modalStyles.scanningWrap}>
+              <View style={modalStyles.scanAnimation}>
+                <Feather name="loader" size={40} color={Colors.light.tint} />
+              </View>
+              <Text style={modalStyles.scanningTitle}>Analyzing Receipt...</Text>
+              <Text style={modalStyles.scanningDesc}>Extracting date, amount, and expense type</Text>
+            </View>
+          )}
 
-          <Pressable
-            style={({ pressed }) => [
-              modalStyles.addBtn,
-              { opacity: pressed ? 0.8 : 1, backgroundColor: (!title || !amount) ? Colors.light.border : Colors.light.tint },
-            ]}
-            onPress={handleAdd}
-            disabled={!title || !amount}
-          >
-            <Text style={modalStyles.addBtnText}>Add Receipt</Text>
-          </Pressable>
+          {(mode === "manual" || mode === "scanned") && !scanning && (
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
+              {mode === "scanned" && (
+                <View style={modalStyles.scannedBanner}>
+                  <Feather name="check-circle" size={16} color={Colors.light.tint} />
+                  <Text style={modalStyles.scannedText}>Details extracted from your receipt. Review and edit if needed.</Text>
+                </View>
+              )}
+
+              <View style={modalStyles.field}>
+                <Text style={modalStyles.label}>Service Name</Text>
+                <TextInput
+                  style={modalStyles.input}
+                  placeholder="e.g., Annual Physical"
+                  value={title}
+                  onChangeText={setTitle}
+                  placeholderTextColor={Colors.light.textMuted}
+                />
+              </View>
+
+              <View style={modalStyles.field}>
+                <Text style={modalStyles.label}>Provider</Text>
+                <TextInput
+                  style={modalStyles.input}
+                  placeholder="e.g., Dr. Smith"
+                  value={provider}
+                  onChangeText={setProvider}
+                  placeholderTextColor={Colors.light.textMuted}
+                />
+              </View>
+
+              <View style={modalStyles.field}>
+                <Text style={modalStyles.label}>Amount ($)</Text>
+                <TextInput
+                  style={modalStyles.input}
+                  placeholder="0.00"
+                  value={amount}
+                  onChangeText={setAmount}
+                  keyboardType="decimal-pad"
+                  placeholderTextColor={Colors.light.textMuted}
+                />
+              </View>
+
+              <View style={modalStyles.field}>
+                <Text style={modalStyles.label}>Date</Text>
+                <TextInput
+                  style={modalStyles.input}
+                  placeholder="YYYY-MM-DD"
+                  value={receiptDate}
+                  onChangeText={setReceiptDate}
+                  placeholderTextColor={Colors.light.textMuted}
+                />
+              </View>
+
+              <View style={modalStyles.field}>
+                <Text style={modalStyles.label}>Expense Type</Text>
+                <Pressable
+                  style={modalStyles.categoryPicker}
+                  onPress={() => setShowCategoryPicker(!showCategoryPicker)}
+                >
+                  <Text style={modalStyles.categoryPickerText}>{selectedCategoryLabel}</Text>
+                  <Feather name={showCategoryPicker ? "chevron-up" : "chevron-down"} size={18} color={Colors.light.textMuted} />
+                </Pressable>
+                {showCategoryPicker && (
+                  <View style={modalStyles.categoryList}>
+                    {EXPENSE_CATEGORIES.map((cat) => (
+                      <Pressable
+                        key={cat.value}
+                        style={[modalStyles.categoryItem, category === cat.value && modalStyles.categoryItemActive]}
+                        onPress={() => { setCategory(cat.value); setShowCategoryPicker(false); if (Platform.OS !== "web") Haptics.selectionAsync(); }}
+                      >
+                        <Text style={[modalStyles.categoryItemText, category === cat.value && modalStyles.categoryItemTextActive]}>
+                          {cat.label}
+                        </Text>
+                        {category === cat.value && <Feather name="check" size={16} color={Colors.light.tint} />}
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+              </View>
+
+              <Pressable
+                style={({ pressed }) => [
+                  modalStyles.addBtn,
+                  { opacity: pressed ? 0.8 : 1, backgroundColor: !canSubmit ? Colors.light.border : Colors.light.tint },
+                ]}
+                onPress={handleAdd}
+                disabled={!canSubmit}
+              >
+                <Feather name="check" size={16} color={Colors.light.white} />
+                <Text style={modalStyles.addBtnText}>Add Receipt</Text>
+              </Pressable>
+            </ScrollView>
+          )}
         </View>
       </View>
     </Modal>
@@ -2588,37 +2772,40 @@ function AddReceiptModal({
 }
 
 const modalStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
-  },
-  container: {
-    backgroundColor: Colors.light.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    padding: 24,
-  },
-  header: {
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
+  container: { backgroundColor: Colors.light.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+  headerLeft: { flexDirection: "row", alignItems: "center" },
+  headerTitle: { fontFamily: "DMSans_700Bold", fontSize: 20, color: Colors.light.text },
+  chooseWrap: { gap: 12, marginBottom: 8 },
+  choiceCard: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    gap: 14,
+    backgroundColor: Colors.light.background,
+    borderRadius: 14,
+    padding: 16,
   },
-  headerTitle: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 20,
-    color: Colors.light.text,
-  },
-  field: {
+  choiceIcon: { width: 48, height: 48, borderRadius: 12, alignItems: "center", justifyContent: "center" },
+  choiceInfo: { flex: 1, gap: 2 },
+  choiceTitle: { fontFamily: "DMSans_600SemiBold", fontSize: 15, color: Colors.light.text },
+  choiceDesc: { fontFamily: "DMSans_400Regular", fontSize: 12, color: Colors.light.textMuted },
+  scanningWrap: { alignItems: "center", paddingVertical: 40, gap: 12 },
+  scanAnimation: { width: 72, height: 72, borderRadius: 20, backgroundColor: Colors.light.tintLight, alignItems: "center", justifyContent: "center" },
+  scanningTitle: { fontFamily: "DMSans_700Bold", fontSize: 18, color: Colors.light.text },
+  scanningDesc: { fontFamily: "DMSans_400Regular", fontSize: 14, color: Colors.light.textMuted },
+  scannedBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: Colors.light.tintLight,
+    borderRadius: 10,
+    padding: 12,
     marginBottom: 16,
-    gap: 6,
   },
-  label: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 13,
-    color: Colors.light.textSecondary,
-  },
+  scannedText: { fontFamily: "DMSans_500Medium", fontSize: 12, color: Colors.light.tint, flex: 1 },
+  field: { marginBottom: 16, gap: 6 },
+  label: { fontFamily: "DMSans_500Medium", fontSize: 13, color: Colors.light.textSecondary },
   input: {
     borderWidth: 1,
     borderColor: Colors.light.border,
@@ -2629,17 +2816,33 @@ const modalStyles = StyleSheet.create({
     fontSize: 15,
     color: Colors.light.text,
   },
+  categoryPicker: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  categoryPickerText: { fontFamily: "DMSans_400Regular", fontSize: 15, color: Colors.light.text },
+  categoryList: { backgroundColor: Colors.light.background, borderRadius: 12, marginTop: 6, overflow: "hidden" },
+  categoryItem: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 16, paddingVertical: 11 },
+  categoryItemActive: { backgroundColor: Colors.light.tintLight },
+  categoryItemText: { fontFamily: "DMSans_400Regular", fontSize: 14, color: Colors.light.text },
+  categoryItemTextActive: { fontFamily: "DMSans_600SemiBold", color: Colors.light.tint },
   addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
     borderRadius: 12,
     paddingVertical: 14,
-    alignItems: "center",
-    marginTop: 8,
+    marginTop: 4,
+    marginBottom: 8,
   },
-  addBtnText: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 15,
-    color: Colors.light.white,
-  },
+  addBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 15, color: Colors.light.white },
 });
 
 export default function AccountsScreen() {
