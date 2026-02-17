@@ -664,7 +664,7 @@ export default function HomeScreen() {
               label="Reimburse"
               color={Colors.light.info}
               bgColor={Colors.light.infoLight}
-              onPress={() => {}}
+              onPress={() => router.push({ pathname: "/(tabs)/accounts", params: { tab: "0" } })}
             />
             <QuickAction
               icon="activity"
