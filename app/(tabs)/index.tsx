@@ -653,11 +653,11 @@ export default function HomeScreen() {
               onPress={() => router.push({ pathname: "/(tabs)/accounts", params: { tab: "1" } })}
             />
             <QuickAction
-              icon="camera"
-              label="Scan Receipt"
+              icon="award"
+              label="Rewards"
               color={Colors.light.accent}
               bgColor={Colors.light.accentLight}
-              onPress={() => {}}
+              onPress={() => router.push({ pathname: "/(tabs)/accounts", params: { tab: "2" } })}
             />
             <QuickAction
               icon="send"
