@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Colors from "@/constants/colors";
-import { useHSA, Receipt, LinkedCard, getLoyaltyTier, loyaltyTiers, LoyaltyTier } from "@/contexts/HSAContext";
+import { useHSA, Receipt, LinkedCard, LinkedBankAccount, getLoyaltyTier, loyaltyTiers, LoyaltyTier } from "@/contexts/HSAContext";
 
 function SegmentedControl({
   tabs,
@@ -1173,6 +1173,436 @@ const addCardStyles = StyleSheet.create({
   },
 });
 
+const bankIcons: Record<string, string> = {
+  "Chase": "building",
+  "Bank of America": "building",
+  "Wells Fargo": "building",
+  "Citi": "building",
+  "Capital One": "building",
+  "US Bank": "building",
+};
+
+function LinkedBankAccountsModal({
+  visible,
+  onClose,
+  accounts,
+  onAdd,
+  onRemove,
+  onSetPrimary,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  accounts: LinkedBankAccount[];
+  onAdd: (account: Omit<LinkedBankAccount, "id">) => void;
+  onRemove: (id: string) => void;
+  onSetPrimary: (id: string) => void;
+}) {
+  const insets = useSafeAreaInsets();
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [bankName, setBankName] = useState("");
+  const [accountType, setAccountType] = useState<"checking" | "savings">("checking");
+  const [routingNumber, setRoutingNumber] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+
+  const resetForm = () => {
+    setBankName("");
+    setAccountType("checking");
+    setRoutingNumber("");
+    setAccountNumber("");
+    setShowAddForm(false);
+  };
+
+  const handleAdd = () => {
+    if (!bankName.trim() || accountNumber.length < 4) return;
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    onAdd({
+      bankName: bankName.trim(),
+      accountType,
+      last4: accountNumber.slice(-4),
+      isPrimary: accounts.length === 0,
+    });
+    resetForm();
+  };
+
+  const handleClose = () => {
+    resetForm();
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={handleClose}>
+      <Pressable style={bankModalStyles.overlay} onPress={handleClose}>
+        <Pressable style={[bankModalStyles.sheet, { paddingBottom: Math.max(insets.bottom, 20) }]} onPress={(e) => e.stopPropagation()}>
+          <View style={bankModalStyles.handle} />
+          <View style={bankModalStyles.headerRow}>
+            <Text style={bankModalStyles.title}>Linked Accounts</Text>
+            <Pressable onPress={handleClose}>
+              <Feather name="x" size={22} color={Colors.light.textMuted} />
+            </Pressable>
+          </View>
+
+          {showAddForm ? (
+            <View>
+              <Text style={bankModalStyles.formTitle}>Add Bank Account</Text>
+              <View style={bankModalStyles.inputGroup}>
+                <Text style={bankModalStyles.label}>Bank Name</Text>
+                <TextInput
+                  style={bankModalStyles.input}
+                  value={bankName}
+                  onChangeText={setBankName}
+                  placeholder="e.g. Chase, Bank of America"
+                  placeholderTextColor={Colors.light.textMuted}
+                  testID="bank-name-input"
+                />
+              </View>
+              <View style={bankModalStyles.inputGroup}>
+                <Text style={bankModalStyles.label}>Account Type</Text>
+                <View style={bankModalStyles.typeRow}>
+                  <Pressable
+                    style={[bankModalStyles.typePill, accountType === "checking" && bankModalStyles.typePillActive]}
+                    onPress={() => {
+                      setAccountType("checking");
+                      if (Platform.OS !== "web") Haptics.selectionAsync();
+                    }}
+                  >
+                    <Text style={[bankModalStyles.typePillText, accountType === "checking" && bankModalStyles.typePillTextActive]}>Checking</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[bankModalStyles.typePill, accountType === "savings" && bankModalStyles.typePillActive]}
+                    onPress={() => {
+                      setAccountType("savings");
+                      if (Platform.OS !== "web") Haptics.selectionAsync();
+                    }}
+                  >
+                    <Text style={[bankModalStyles.typePillText, accountType === "savings" && bankModalStyles.typePillTextActive]}>Savings</Text>
+                  </Pressable>
+                </View>
+              </View>
+              <View style={bankModalStyles.inputGroup}>
+                <Text style={bankModalStyles.label}>Routing Number</Text>
+                <TextInput
+                  style={bankModalStyles.input}
+                  value={routingNumber}
+                  onChangeText={(t) => setRoutingNumber(t.replace(/\D/g, "").slice(0, 9))}
+                  placeholder="9 digits"
+                  placeholderTextColor={Colors.light.textMuted}
+                  keyboardType="number-pad"
+                  maxLength={9}
+                  testID="routing-number-input"
+                />
+              </View>
+              <View style={bankModalStyles.inputGroup}>
+                <Text style={bankModalStyles.label}>Account Number</Text>
+                <TextInput
+                  style={bankModalStyles.input}
+                  value={accountNumber}
+                  onChangeText={(t) => setAccountNumber(t.replace(/\D/g, "").slice(0, 17))}
+                  placeholder="Account number"
+                  placeholderTextColor={Colors.light.textMuted}
+                  keyboardType="number-pad"
+                  maxLength={17}
+                  secureTextEntry
+                  testID="account-number-input"
+                />
+              </View>
+              <View style={bankModalStyles.formBtns}>
+                <Pressable style={bankModalStyles.cancelBtn} onPress={resetForm}>
+                  <Text style={bankModalStyles.cancelBtnText}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  style={[bankModalStyles.linkBtn, (!bankName.trim() || accountNumber.length < 4 || routingNumber.length < 9) && { opacity: 0.4 }]}
+                  onPress={handleAdd}
+                  disabled={!bankName.trim() || accountNumber.length < 4 || routingNumber.length < 9}
+                  testID="link-bank-btn"
+                >
+                  <Feather name="link" size={16} color={Colors.light.white} />
+                  <Text style={bankModalStyles.linkBtnText}>Link Account</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : (
+            <View>
+              {accounts.length === 0 ? (
+                <View style={bankModalStyles.emptyState}>
+                  <Feather name="inbox" size={36} color={Colors.light.textMuted} />
+                  <Text style={bankModalStyles.emptyText}>No bank accounts linked</Text>
+                  <Text style={bankModalStyles.emptySubtext}>Link an external bank account to transfer funds</Text>
+                </View>
+              ) : (
+                <View style={bankModalStyles.accountList}>
+                  {accounts.map((acct) => (
+                    <View key={acct.id} style={bankModalStyles.accountRow}>
+                      <View style={bankModalStyles.accountIcon}>
+                        <Feather name="home" size={18} color={Colors.light.tint} />
+                      </View>
+                      <View style={bankModalStyles.accountInfo}>
+                        <View style={bankModalStyles.accountNameRow}>
+                          <Text style={bankModalStyles.accountName}>{acct.bankName}</Text>
+                          {acct.isPrimary && (
+                            <View style={bankModalStyles.primaryBadge}>
+                              <Text style={bankModalStyles.primaryBadgeText}>Primary</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={bankModalStyles.accountDetail}>
+                          {acct.accountType === "checking" ? "Checking" : "Savings"} ****{acct.last4}
+                        </Text>
+                      </View>
+                      <View style={bankModalStyles.accountActions}>
+                        {!acct.isPrimary && (
+                          <Pressable
+                            style={bankModalStyles.actionBtn}
+                            onPress={() => {
+                              onSetPrimary(acct.id);
+                              if (Platform.OS !== "web") Haptics.selectionAsync();
+                            }}
+                          >
+                            <Feather name="star" size={16} color={Colors.light.accent} />
+                          </Pressable>
+                        )}
+                        <Pressable
+                          style={bankModalStyles.actionBtn}
+                          onPress={() => {
+                            onRemove(acct.id);
+                            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                          }}
+                        >
+                          <Feather name="trash-2" size={16} color={Colors.light.danger} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              )}
+              <Pressable
+                style={bankModalStyles.addAccountBtn}
+                onPress={() => {
+                  setShowAddForm(true);
+                  if (Platform.OS !== "web") Haptics.selectionAsync();
+                }}
+                testID="add-bank-account-btn"
+              >
+                <Feather name="plus" size={18} color={Colors.light.tint} />
+                <Text style={bankModalStyles.addAccountBtnText}>Add Bank Account</Text>
+              </Pressable>
+            </View>
+          )}
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const bankModalStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "flex-end",
+  },
+  sheet: {
+    backgroundColor: Colors.light.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    paddingTop: 16,
+    maxHeight: "85%",
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.light.borderLight,
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  headerRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  title: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 20,
+    color: Colors.light.text,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 32,
+    gap: 8,
+  },
+  emptyText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  emptySubtext: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.textMuted,
+  },
+  accountList: {
+    gap: 2,
+    marginBottom: 16,
+  },
+  accountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.light.borderLight,
+  },
+  accountIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: Colors.light.tintLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  accountInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  accountNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  accountName: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.text,
+  },
+  primaryBadge: {
+    backgroundColor: Colors.light.tintLight,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  primaryBadgeText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 11,
+    color: Colors.light.tint,
+  },
+  accountDetail: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.textMuted,
+  },
+  accountActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  actionBtn: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    backgroundColor: Colors.light.borderLight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  addAccountBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    borderWidth: 2,
+    borderColor: Colors.light.tint,
+    borderStyle: "dashed",
+  },
+  addAccountBtnText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.tint,
+  },
+  formTitle: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 16,
+    color: Colors.light.text,
+    marginBottom: 16,
+  },
+  inputGroup: {
+    marginBottom: 14,
+  },
+  label: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    marginBottom: 6,
+  },
+  input: {
+    backgroundColor: Colors.light.background,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontFamily: "DMSans_500Medium",
+    fontSize: 15,
+    color: Colors.light.text,
+    borderWidth: 1,
+    borderColor: Colors.light.borderLight,
+  },
+  typeRow: {
+    flexDirection: "row",
+    gap: 10,
+  },
+  typePill: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: Colors.light.borderLight,
+    alignItems: "center",
+  },
+  typePillActive: {
+    backgroundColor: Colors.light.tintLight,
+    borderWidth: 1,
+    borderColor: Colors.light.tint,
+  },
+  typePillText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+    color: Colors.light.textMuted,
+  },
+  typePillTextActive: {
+    color: Colors.light.tint,
+  },
+  formBtns: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 8,
+  },
+  cancelBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: Colors.light.borderLight,
+    alignItems: "center",
+  },
+  cancelBtnText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.text,
+  },
+  linkBtn: {
+    flex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: Colors.light.tint,
+  },
+  linkBtnText: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 15,
+    color: Colors.light.white,
+  },
+});
+
 function LinkedCardsSection({
   cards,
   onAddCard,
@@ -1795,8 +2225,9 @@ const modalStyles = StyleSheet.create({
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
-  const { balance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, autoReimburse, userName, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard } = useHSA();
+  const { balance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, autoReimburse, userName, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard, linkedBankAccounts, addLinkedBankAccount, removeLinkedBankAccount, setPrimaryBankAccount } = useHSA();
   const [showAddCard, setShowAddCard] = useState(false);
+  const [showBankAccounts, setShowBankAccounts] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [showAddReceipt, setShowAddReceipt] = useState(false);
   const webTopInset = Platform.OS === "web" ? 67 : 0;
@@ -1869,6 +2300,22 @@ export default function AccountsScreen() {
               <SettingsRow icon="user" label="Account Holder" value={userName || "Alex"} />
               <SettingsRow icon="calendar" label="Plan Year" value="2026" />
               <SettingsRow icon="shield" label="Account Type" value="Individual" />
+              <Pressable
+                style={({ pressed }) => [settStyles.row, { opacity: pressed ? 0.7 : 1 }]}
+                onPress={() => {
+                  setShowBankAccounts(true);
+                  if (Platform.OS !== "web") Haptics.selectionAsync();
+                }}
+              >
+                <View style={settStyles.left}>
+                  <Feather name="link" size={18} color={Colors.light.textSecondary} />
+                  <Text style={settStyles.label}>Linked Accounts</Text>
+                </View>
+                <View style={settStyles.right}>
+                  <Text style={settStyles.value}>{linkedBankAccounts.length} bank{linkedBankAccounts.length !== 1 ? "s" : ""}</Text>
+                  <Feather name="chevron-right" size={18} color={Colors.light.textMuted} />
+                </View>
+              </Pressable>
             </View>
 
             <View style={styles.section}>
@@ -1898,6 +2345,15 @@ export default function AccountsScreen() {
         visible={showAddCard}
         onClose={() => setShowAddCard(false)}
         onAdd={addLinkedCard}
+      />
+
+      <LinkedBankAccountsModal
+        visible={showBankAccounts}
+        onClose={() => setShowBankAccounts(false)}
+        accounts={linkedBankAccounts}
+        onAdd={addLinkedBankAccount}
+        onRemove={removeLinkedBankAccount}
+        onSetPrimary={setPrimaryBankAccount}
       />
     </View>
   );

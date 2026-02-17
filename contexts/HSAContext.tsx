@@ -29,6 +29,14 @@ export interface LinkedCard {
   isDefault: boolean;
 }
 
+export interface LinkedBankAccount {
+  id: string;
+  bankName: string;
+  accountType: "checking" | "savings";
+  last4: string;
+  isPrimary: boolean;
+}
+
 export interface InvestmentHolding {
   id: string;
   name: string;
@@ -89,9 +97,13 @@ export interface HSAContextValue {
   userName: string;
   totalUnreimbursed: number;
   linkedCards: LinkedCard[];
+  linkedBankAccounts: LinkedBankAccount[];
   addLinkedCard: (card: Omit<LinkedCard, "id">) => void;
   removeLinkedCard: (cardId: string) => void;
   setDefaultCard: (cardId: string) => void;
+  addLinkedBankAccount: (account: Omit<LinkedBankAccount, "id">) => void;
+  removeLinkedBankAccount: (accountId: string) => void;
+  setPrimaryBankAccount: (accountId: string) => void;
   addContribution: (amount: number) => void;
   addReceipt: (receipt: Omit<Receipt, "id">) => void;
   autoReimburse: (amount: number) => void;
@@ -151,6 +163,9 @@ export function HSAProvider({ children }: { children: ReactNode }) {
   const [roundUpEnabled, setRoundUpEnabled] = useState(false);
   const [linkedCards, setLinkedCards] = useState<LinkedCard[]>([
     { id: "lc1", type: "visa", last4: "4829", label: "Chase Sapphire", isDefault: true },
+  ]);
+  const [linkedBankAccounts, setLinkedBankAccounts] = useState<LinkedBankAccount[]>([
+    { id: "ba1", bankName: "Chase", accountType: "checking", last4: "7842", isPrimary: true },
   ]);
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -257,6 +272,34 @@ export function HSAProvider({ children }: { children: ReactNode }) {
   const setDefaultCard = (cardId: string) => {
     setLinkedCards((prev) =>
       prev.map((c) => ({ ...c, isDefault: c.id === cardId }))
+    );
+  };
+
+  const addLinkedBankAccount = (account: Omit<LinkedBankAccount, "id">) => {
+    const newAccount: LinkedBankAccount = {
+      ...account,
+      id: "ba" + Date.now().toString() + Math.random().toString(36).substr(2, 4),
+    };
+    if (newAccount.isPrimary) {
+      setLinkedBankAccounts((prev) => [...prev.map((a) => ({ ...a, isPrimary: false })), newAccount]);
+    } else {
+      setLinkedBankAccounts((prev) => [...prev, newAccount]);
+    }
+  };
+
+  const removeLinkedBankAccount = (accountId: string) => {
+    setLinkedBankAccounts((prev) => {
+      const updated = prev.filter((a) => a.id !== accountId);
+      if (updated.length > 0 && !updated.some((a) => a.isPrimary)) {
+        updated[0].isPrimary = true;
+      }
+      return updated;
+    });
+  };
+
+  const setPrimaryBankAccount = (accountId: string) => {
+    setLinkedBankAccounts((prev) =>
+      prev.map((a) => ({ ...a, isPrimary: a.id === accountId }))
     );
   };
 
@@ -372,9 +415,13 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       userName,
       totalUnreimbursed,
       linkedCards,
+      linkedBankAccounts,
       addLinkedCard,
       removeLinkedCard,
       setDefaultCard,
+      addLinkedBankAccount,
+      removeLinkedBankAccount,
+      setPrimaryBankAccount,
       addContribution,
       addReceipt,
       autoReimburse,
@@ -385,7 +432,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       buyHolding,
       sellHolding,
     }),
-    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, totalUnreimbursed, linkedCards]
+    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, totalUnreimbursed, linkedCards, linkedBankAccounts]
   );
 
   return <HSAContext.Provider value={value}>{children}</HSAContext.Provider>;
