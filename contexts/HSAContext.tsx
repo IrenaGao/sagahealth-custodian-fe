@@ -99,6 +99,8 @@ export interface HSAContextValue {
   toggleFirstDollar: () => void;
   toggleRoundUp: () => void;
   completeOnboarding: (name?: string) => void;
+  buyHolding: (holdingId: string, amount: number) => boolean;
+  sellHolding: (holdingId: string, amount: number) => boolean;
 }
 
 const HSAContext = createContext<HSAContextValue | null>(null);
@@ -137,13 +139,13 @@ const defaultReceipts: Receipt[] = [
 ];
 
 export function HSAProvider({ children }: { children: ReactNode }) {
-  const [balance] = useState(12550);
-  const [investedBalance] = useState(8550);
+  const [balance, setBalance] = useState(12550);
+  const [investedBalance, setInvestedBalance] = useState(8550);
   const [contributionYTD, setContributionYTD] = useState(2000);
   const [contributionLimit] = useState(4300);
   const [transactions, setTransactions] = useState<Transaction[]>(defaultTransactions);
   const [receipts, setReceipts] = useState<Receipt[]>(defaultReceipts);
-  const [holdings] = useState<InvestmentHolding[]>(defaultHoldings);
+  const [holdings, setHoldings] = useState<InvestmentHolding[]>(defaultHoldings);
   const [autoInvestEnabled, setAutoInvestEnabled] = useState(true);
   const [firstDollarEnabled, setFirstDollarEnabled] = useState(true);
   const [roundUpEnabled, setRoundUpEnabled] = useState(false);
@@ -279,6 +281,51 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const buyHolding = (holdingId: string, amount: number): boolean => {
+    const cash = balance - investedBalance;
+    if (amount <= 0 || amount > cash) return false;
+    const holding = holdings.find((h) => h.id === holdingId);
+    if (!holding) return false;
+    setInvestedBalance((prev) => prev + amount);
+    setHoldings((prev) => {
+      const totalInvested = prev.reduce((s, h) => s + h.balance, 0) + amount;
+      return prev.map((h) => {
+        const newBalance = h.id === holdingId ? h.balance + amount : h.balance;
+        return { ...h, balance: newBalance, allocation: Math.round((newBalance / totalInvested) * 100) };
+      });
+    });
+    const today = new Date().toISOString().split("T")[0];
+    const txId = "t" + Date.now().toString() + Math.random().toString(36).substr(2, 4);
+    setTransactions((prev) => [
+      { id: txId, type: "investment", amount: -amount, description: `Buy ${holding.ticker}`, date: today, category: "investment" },
+      ...prev,
+    ]);
+    return true;
+  };
+
+  const sellHolding = (holdingId: string, amount: number): boolean => {
+    const holding = holdings.find((h) => h.id === holdingId);
+    if (!holding || amount <= 0 || amount > holding.balance) return false;
+    setInvestedBalance((prev) => prev - amount);
+    setHoldings((prev) => {
+      const totalInvested = prev.reduce((s, h) => s + h.balance, 0) - amount;
+      if (totalInvested <= 0) {
+        return prev.map((h) => (h.id === holdingId ? { ...h, balance: 0, allocation: 0 } : h));
+      }
+      return prev.map((h) => {
+        const newBalance = h.id === holdingId ? h.balance - amount : h.balance;
+        return { ...h, balance: newBalance, allocation: Math.round((newBalance / totalInvested) * 100) };
+      });
+    });
+    const today = new Date().toISOString().split("T")[0];
+    const txId = "t" + Date.now().toString() + Math.random().toString(36).substr(2, 4);
+    setTransactions((prev) => [
+      { id: txId, type: "investment", amount, description: `Sell ${holding.ticker}`, date: today, category: "investment" },
+      ...prev,
+    ]);
+    return true;
+  };
+
   const completeOnboarding = (name?: string) => {
     setHasCompletedOnboarding(true);
     if (name) setUserName(name);
@@ -335,6 +382,8 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       toggleFirstDollar,
       toggleRoundUp,
       completeOnboarding,
+      buyHolding,
+      sellHolding,
     }),
     [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, totalUnreimbursed, linkedCards]
   );
