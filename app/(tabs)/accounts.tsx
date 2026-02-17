@@ -941,6 +941,374 @@ const contStyles = StyleSheet.create({
   },
 });
 
+function ContributionsTab({
+  contributionYTD,
+  contributionLimit,
+  contributions,
+  addContribution,
+}: {
+  contributionYTD: number;
+  contributionLimit: number;
+  contributions: { id: string; amount: number; description: string; date: string }[];
+  addContribution: (amount: number) => void;
+}) {
+  const [showContribModal, setShowContribModal] = useState(false);
+  const [recurringAmount, setRecurringAmount] = useState("500");
+  const [recurringFrequency, setRecurringFrequency] = useState<"weekly" | "biweekly" | "monthly">("monthly");
+  const [recurringEnabled, setRecurringEnabled] = useState(true);
+  const [editingRecurring, setEditingRecurring] = useState(false);
+
+  const remaining = contributionLimit - contributionYTD;
+  const progressPercent = Math.min((contributionYTD / contributionLimit) * 100, 100);
+
+  const frequencyLabel = recurringFrequency === "weekly" ? "Weekly" : recurringFrequency === "biweekly" ? "Bi-weekly" : "Monthly";
+  const nextDate = useMemo(() => {
+    const now = new Date();
+    if (recurringFrequency === "weekly") {
+      now.setDate(now.getDate() + (7 - now.getDay()) % 7 || 7);
+    } else if (recurringFrequency === "biweekly") {
+      now.setDate(now.getDate() + 14 - (now.getDate() % 14));
+    } else {
+      now.setMonth(now.getMonth() + 1, 1);
+    }
+    return now.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  }, [recurringFrequency]);
+
+  const handleSaveRecurring = () => {
+    setEditingRecurring(false);
+    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  return (
+    <Animated.View entering={Platform.OS !== "web" ? FadeInDown.duration(400) : undefined}>
+      <View style={ctStyles.summaryRow}>
+        <View style={ctStyles.summaryBox}>
+          <Text style={ctStyles.summaryLabel}>YTD Contributions</Text>
+          <Text style={ctStyles.summaryValue}>${contributionYTD.toLocaleString()}</Text>
+        </View>
+        <View style={ctStyles.summaryBox}>
+          <Text style={ctStyles.summaryLabel}>Remaining</Text>
+          <Text style={[ctStyles.summaryValue, { color: Colors.light.tint }]}>
+            ${remaining.toLocaleString()}
+          </Text>
+        </View>
+      </View>
+
+      <View style={ctStyles.progressSection}>
+        <View style={ctStyles.progressBar}>
+          <View style={[ctStyles.progressFill, { width: `${progressPercent}%` }]} />
+        </View>
+        <View style={ctStyles.progressLabels}>
+          <Text style={ctStyles.progressText}>
+            ${contributionYTD.toLocaleString()} of ${contributionLimit.toLocaleString()}
+          </Text>
+          <Text style={ctStyles.progressText}>{Math.round(progressPercent)}%</Text>
+        </View>
+      </View>
+
+      <Pressable
+        style={({ pressed }) => [ctStyles.newContribBtn, { opacity: pressed ? 0.85 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+        onPress={() => setShowContribModal(true)}
+      >
+        <Feather name="plus" size={18} color={Colors.light.white} />
+        <Text style={ctStyles.newContribBtnText}>New Contribution</Text>
+      </Pressable>
+
+      <View style={ctStyles.card}>
+        <View style={ctStyles.cardHeader}>
+          <View style={ctStyles.cardHeaderLeft}>
+            <View style={ctStyles.recurringIcon}>
+              <Feather name="repeat" size={16} color={Colors.light.tint} />
+            </View>
+            <Text style={ctStyles.cardTitle}>Recurring Contribution</Text>
+          </View>
+          {!editingRecurring && (
+            <Pressable onPress={() => setEditingRecurring(true)} hitSlop={8}>
+              <Feather name="edit-2" size={16} color={Colors.light.textMuted} />
+            </Pressable>
+          )}
+        </View>
+
+        {!editingRecurring ? (
+          <View style={ctStyles.recurringInfo}>
+            <View style={ctStyles.recurringRow}>
+              <Text style={ctStyles.recurringLabel}>Amount</Text>
+              <Text style={ctStyles.recurringValue}>${parseFloat(recurringAmount).toLocaleString()}</Text>
+            </View>
+            <View style={ctStyles.divider} />
+            <View style={ctStyles.recurringRow}>
+              <Text style={ctStyles.recurringLabel}>Frequency</Text>
+              <Text style={ctStyles.recurringValue}>{frequencyLabel}</Text>
+            </View>
+            <View style={ctStyles.divider} />
+            <View style={ctStyles.recurringRow}>
+              <Text style={ctStyles.recurringLabel}>Next Contribution</Text>
+              <Text style={ctStyles.recurringValue}>{nextDate}</Text>
+            </View>
+            <View style={ctStyles.divider} />
+            <View style={ctStyles.recurringRow}>
+              <Text style={ctStyles.recurringLabel}>Status</Text>
+              <View style={[ctStyles.statusBadge, { backgroundColor: recurringEnabled ? Colors.light.tintLight : "#FEE2E2" }]}>
+                <Text style={[ctStyles.statusText, { color: recurringEnabled ? Colors.light.tint : "#DC2626" }]}>
+                  {recurringEnabled ? "Active" : "Paused"}
+                </Text>
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View style={ctStyles.editSection}>
+            <Text style={ctStyles.editLabel}>Amount</Text>
+            <View style={ctStyles.editAmountRow}>
+              <Text style={ctStyles.editDollar}>$</Text>
+              <TextInput
+                style={ctStyles.editInput}
+                value={recurringAmount}
+                onChangeText={setRecurringAmount}
+                keyboardType="decimal-pad"
+                placeholder="0"
+                placeholderTextColor={Colors.light.textMuted}
+              />
+            </View>
+
+            <Text style={[ctStyles.editLabel, { marginTop: 16 }]}>Frequency</Text>
+            <View style={ctStyles.freqRow}>
+              {(["weekly", "biweekly", "monthly"] as const).map((freq) => {
+                const isActive = recurringFrequency === freq;
+                const label = freq === "weekly" ? "Weekly" : freq === "biweekly" ? "Bi-weekly" : "Monthly";
+                return (
+                  <Pressable
+                    key={freq}
+                    style={[ctStyles.freqBtn, isActive && ctStyles.freqBtnActive]}
+                    onPress={() => { setRecurringFrequency(freq); if (Platform.OS !== "web") Haptics.selectionAsync(); }}
+                  >
+                    <Text style={[ctStyles.freqText, isActive && ctStyles.freqTextActive]}>{label}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={ctStyles.toggleRow}>
+              <Text style={ctStyles.toggleLabel}>Enable Recurring</Text>
+              <Pressable
+                style={[ctStyles.toggle, recurringEnabled && ctStyles.toggleActive]}
+                onPress={() => { setRecurringEnabled(!recurringEnabled); if (Platform.OS !== "web") Haptics.selectionAsync(); }}
+              >
+                <Animated.View style={[ctStyles.toggleThumb, recurringEnabled && ctStyles.toggleThumbActive]} />
+              </Pressable>
+            </View>
+
+            <View style={ctStyles.editActions}>
+              <Pressable style={ctStyles.cancelBtn} onPress={() => setEditingRecurring(false)}>
+                <Text style={ctStyles.cancelBtnText}>Cancel</Text>
+              </Pressable>
+              <Pressable style={ctStyles.saveBtn} onPress={handleSaveRecurring}>
+                <Feather name="check" size={16} color={Colors.light.white} />
+                <Text style={ctStyles.saveBtnText}>Save Changes</Text>
+              </Pressable>
+            </View>
+          </View>
+        )}
+      </View>
+
+      <View style={ctStyles.card}>
+        <Text style={ctStyles.cardTitle}>Contribution History</Text>
+        {contributions.length === 0 ? (
+          <Text style={ctStyles.emptyText}>No contributions yet</Text>
+        ) : (
+          contributions.map((tx) => (
+            <ContributionItem key={tx.id} tx={tx} />
+          ))
+        )}
+      </View>
+
+      <NewContributionModal
+        visible={showContribModal}
+        onClose={() => setShowContribModal(false)}
+        remaining={remaining}
+        onContribute={addContribution}
+      />
+    </Animated.View>
+  );
+}
+
+function NewContributionModal({
+  visible,
+  onClose,
+  remaining,
+  onContribute,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  remaining: number;
+  onContribute: (amount: number) => void;
+}) {
+  const [amount, setAmount] = useState("");
+  const insets = useSafeAreaInsets();
+  const parsed = parseFloat(amount) || 0;
+  const isValid = parsed > 0 && parsed <= remaining;
+
+  const handleContribute = () => {
+    if (!isValid) return;
+    if (parsed > remaining * 0.9) {
+      Alert.alert(
+        "Large Contribution",
+        `This will use ${Math.round((parsed / remaining) * 100)}% of your remaining annual limit. Continue?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Contribute", onPress: () => { onContribute(parsed); onClose(); setAmount(""); if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success); } },
+        ]
+      );
+    } else {
+      onContribute(parsed);
+      onClose();
+      setAmount("");
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    }
+  };
+
+  const presets = useMemo(() => {
+    const options = [100, 250, 500, 1000].filter((v) => v <= remaining);
+    return options;
+  }, [remaining]);
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <View style={ncStyles.overlay}>
+        <View style={[ncStyles.container, { paddingBottom: insets.bottom + 20 }]}>
+          <View style={ncStyles.header}>
+            <Text style={ncStyles.title}>New Contribution</Text>
+            <Pressable onPress={onClose}>
+              <Feather name="x" size={24} color={Colors.light.text} />
+            </Pressable>
+          </View>
+
+          <Text style={ncStyles.remaining}>
+            ${remaining.toLocaleString(undefined, { minimumFractionDigits: 2 })} remaining this year
+          </Text>
+
+          <View style={ncStyles.inputWrap}>
+            <Text style={ncStyles.dollar}>$</Text>
+            <TextInput
+              style={ncStyles.input}
+              value={amount}
+              onChangeText={setAmount}
+              keyboardType="decimal-pad"
+              placeholder="0.00"
+              placeholderTextColor={Colors.light.textMuted}
+              autoFocus
+            />
+          </View>
+
+          {presets.length > 0 && (
+            <View style={ncStyles.presetRow}>
+              {presets.map((val) => (
+                <Pressable
+                  key={val}
+                  style={[ncStyles.presetBtn, parsed === val && ncStyles.presetBtnActive]}
+                  onPress={() => { setAmount(val.toString()); if (Platform.OS !== "web") Haptics.selectionAsync(); }}
+                >
+                  <Text style={[ncStyles.presetText, parsed === val && ncStyles.presetTextActive]}>${val}</Text>
+                </Pressable>
+              ))}
+              <Pressable
+                style={[ncStyles.presetBtn, parsed === remaining && ncStyles.presetBtnActive]}
+                onPress={() => { setAmount(remaining.toString()); if (Platform.OS !== "web") Haptics.selectionAsync(); }}
+              >
+                <Text style={[ncStyles.presetText, parsed === remaining && ncStyles.presetTextActive]}>Max</Text>
+              </Pressable>
+            </View>
+          )}
+
+          {parsed > remaining && (
+            <Text style={ncStyles.errorText}>Exceeds annual contribution limit</Text>
+          )}
+
+          <Pressable
+            style={({ pressed }) => [
+              ncStyles.submitBtn,
+              { opacity: pressed ? 0.8 : 1, backgroundColor: isValid ? Colors.light.tint : Colors.light.border },
+            ]}
+            onPress={handleContribute}
+            disabled={!isValid}
+          >
+            <Feather name="arrow-down-circle" size={16} color={Colors.light.white} />
+            <Text style={ncStyles.submitBtnText}>
+              Contribute ${parsed.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Text>
+          </Pressable>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const ncStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "flex-end" },
+  container: { backgroundColor: Colors.light.card, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24 },
+  header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 4 },
+  title: { fontFamily: "DMSans_700Bold", fontSize: 20, color: Colors.light.text },
+  remaining: { fontFamily: "DMSans_400Regular", fontSize: 13, color: Colors.light.textMuted, marginBottom: 20 },
+  inputWrap: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.light.background, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14, marginBottom: 16 },
+  dollar: { fontFamily: "DMSans_700Bold", fontSize: 28, color: Colors.light.text, marginRight: 4 },
+  input: { fontFamily: "DMSans_700Bold", fontSize: 28, color: Colors.light.text, flex: 1, paddingVertical: 0 },
+  presetRow: { flexDirection: "row", gap: 8, marginBottom: 16, flexWrap: "wrap" },
+  presetBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, backgroundColor: Colors.light.background },
+  presetBtnActive: { backgroundColor: Colors.light.tint },
+  presetText: { fontFamily: "DMSans_600SemiBold", fontSize: 14, color: Colors.light.text },
+  presetTextActive: { color: Colors.light.white },
+  errorText: { fontFamily: "DMSans_400Regular", fontSize: 12, color: Colors.light.danger, marginBottom: 8 },
+  submitBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderRadius: 14, paddingVertical: 16, marginTop: 4 },
+  submitBtnText: { fontFamily: "DMSans_700Bold", fontSize: 16, color: Colors.light.white },
+});
+
+const ctStyles = StyleSheet.create({
+  summaryRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
+  summaryBox: { flex: 1, backgroundColor: Colors.light.card, borderRadius: 14, padding: 16, gap: 4 },
+  summaryLabel: { fontFamily: "DMSans_500Medium", fontSize: 12, color: Colors.light.textMuted },
+  summaryValue: { fontFamily: "DMSans_700Bold", fontSize: 22, color: Colors.light.text },
+  progressSection: { marginBottom: 16 },
+  progressBar: { height: 6, backgroundColor: Colors.light.borderLight, borderRadius: 3, overflow: "hidden" },
+  progressFill: { height: "100%", backgroundColor: Colors.light.tint, borderRadius: 3 },
+  progressLabels: { flexDirection: "row", justifyContent: "space-between", marginTop: 6 },
+  progressText: { fontFamily: "DMSans_400Regular", fontSize: 12, color: Colors.light.textMuted },
+  newContribBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: Colors.light.tint, borderRadius: 14, paddingVertical: 14, marginBottom: 16 },
+  newContribBtnText: { fontFamily: "DMSans_700Bold", fontSize: 15, color: Colors.light.white },
+  card: { backgroundColor: Colors.light.card, borderRadius: 16, padding: 20, marginBottom: 16 },
+  cardHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  cardHeaderLeft: { flexDirection: "row", alignItems: "center", gap: 10 },
+  recurringIcon: { width: 32, height: 32, borderRadius: 8, backgroundColor: Colors.light.tintLight, alignItems: "center", justifyContent: "center" },
+  cardTitle: { fontFamily: "DMSans_700Bold", fontSize: 17, color: Colors.light.text },
+  recurringInfo: { gap: 0 },
+  recurringRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 12 },
+  recurringLabel: { fontFamily: "DMSans_400Regular", fontSize: 14, color: Colors.light.textMuted },
+  recurringValue: { fontFamily: "DMSans_600SemiBold", fontSize: 14, color: Colors.light.text },
+  divider: { height: 1, backgroundColor: Colors.light.borderLight },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  statusText: { fontFamily: "DMSans_600SemiBold", fontSize: 12 },
+  editSection: { marginTop: 4 },
+  editLabel: { fontFamily: "DMSans_500Medium", fontSize: 13, color: Colors.light.textMuted, marginBottom: 8 },
+  editAmountRow: { flexDirection: "row", alignItems: "center", backgroundColor: Colors.light.background, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12 },
+  editDollar: { fontFamily: "DMSans_700Bold", fontSize: 22, color: Colors.light.text, marginRight: 4 },
+  editInput: { fontFamily: "DMSans_700Bold", fontSize: 22, color: Colors.light.text, flex: 1, paddingVertical: 0 },
+  freqRow: { flexDirection: "row", gap: 8 },
+  freqBtn: { flex: 1, paddingVertical: 10, borderRadius: 10, backgroundColor: Colors.light.background, alignItems: "center" },
+  freqBtnActive: { backgroundColor: Colors.light.tint },
+  freqText: { fontFamily: "DMSans_600SemiBold", fontSize: 13, color: Colors.light.text },
+  freqTextActive: { color: Colors.light.white },
+  toggleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginTop: 20 },
+  toggleLabel: { fontFamily: "DMSans_500Medium", fontSize: 14, color: Colors.light.text },
+  toggle: { width: 48, height: 28, borderRadius: 14, backgroundColor: Colors.light.borderLight, justifyContent: "center", padding: 2 },
+  toggleActive: { backgroundColor: Colors.light.tint },
+  toggleThumb: { width: 24, height: 24, borderRadius: 12, backgroundColor: Colors.light.white },
+  toggleThumbActive: { alignSelf: "flex-end" },
+  editActions: { flexDirection: "row", gap: 10, marginTop: 20 },
+  cancelBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: Colors.light.background, alignItems: "center" },
+  cancelBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 14, color: Colors.light.textMuted },
+  saveBtn: { flex: 2, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12, borderRadius: 12, backgroundColor: Colors.light.tint },
+  saveBtnText: { fontFamily: "DMSans_700Bold", fontSize: 14, color: Colors.light.white },
+  emptyText: { fontFamily: "DMSans_400Regular", fontSize: 14, color: Colors.light.textMuted, paddingVertical: 20, textAlign: "center" },
+});
+
 function SettingsRow({
   icon,
   label,
@@ -2321,27 +2689,12 @@ export default function AccountsScreen() {
         )}
 
         {activeTab === 1 && (
-          <Animated.View entering={Platform.OS !== "web" ? FadeInDown.duration(400) : undefined}>
-            <View style={styles.contribSummary}>
-              <View style={styles.contribBox}>
-                <Text style={styles.contribLabel}>YTD Contributions</Text>
-                <Text style={styles.contribValue}>${contributionYTD.toLocaleString()}</Text>
-              </View>
-              <View style={styles.contribBox}>
-                <Text style={styles.contribLabel}>Remaining</Text>
-                <Text style={[styles.contribValue, { color: Colors.light.tint }]}>
-                  ${(contributionLimit - contributionYTD).toLocaleString()}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Contribution History</Text>
-              {contributions.map((tx) => (
-                <ContributionItem key={tx.id} tx={tx} />
-              ))}
-            </View>
-          </Animated.View>
+          <ContributionsTab
+            contributionYTD={contributionYTD}
+            contributionLimit={contributionLimit}
+            contributions={contributions}
+            addContribution={addContribution}
+          />
         )}
 
         {activeTab === 2 && (
@@ -2439,28 +2792,6 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: "DMSans_700Bold",
     fontSize: 17,
-    color: Colors.light.text,
-  },
-  contribSummary: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 16,
-  },
-  contribBox: {
-    flex: 1,
-    backgroundColor: Colors.light.card,
-    borderRadius: 14,
-    padding: 16,
-    gap: 4,
-  },
-  contribLabel: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 12,
-    color: Colors.light.textMuted,
-  },
-  contribValue: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 22,
     color: Colors.light.text,
   },
   section: {
