@@ -517,7 +517,30 @@ const toggleStyles = StyleSheet.create({
   },
 });
 
-type TradeType = "buy" | "sell";
+type TradeMode = "buy" | "sell" | "mix";
+
+function MixSliderItem({ holding, value, onChange }: { holding: InvestmentHolding; value: number; onChange: (v: number) => void }) {
+  return (
+    <View style={tradeStyles.mixItem}>
+      <View style={tradeStyles.mixItemHeader}>
+        <View style={[tradeStyles.holdingDot, { backgroundColor: holding.color }]} />
+        <Text style={tradeStyles.mixItemTicker}>{holding.ticker}</Text>
+        <Text style={tradeStyles.mixItemPct}>{value}%</Text>
+      </View>
+      <View style={tradeStyles.mixSliderTrack}>
+        <View style={[tradeStyles.mixSliderFill, { width: `${value}%`, backgroundColor: holding.color }]} />
+      </View>
+      <View style={tradeStyles.mixBtnRow}>
+        <Pressable style={tradeStyles.mixAdjustBtn} onPress={() => { if (value > 0) onChange(value - 5); }}>
+          <Feather name="minus" size={16} color={Colors.light.textSecondary} />
+        </Pressable>
+        <Pressable style={tradeStyles.mixAdjustBtn} onPress={() => { if (value < 100) onChange(value + 5); }}>
+          <Feather name="plus" size={16} color={Colors.light.textSecondary} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
 
 function TradeModal({
   visible,
@@ -526,6 +549,7 @@ function TradeModal({
   cashBalance,
   onBuy,
   onSell,
+  onChangeMix,
 }: {
   visible: boolean;
   onClose: () => void;
@@ -533,38 +557,58 @@ function TradeModal({
   cashBalance: number;
   onBuy: (holdingId: string, amount: number) => boolean;
   onSell: (holdingId: string, amount: number) => boolean;
+  onChangeMix: (allocations: { id: string; allocation: number }[]) => void;
 }) {
-  const [tradeType, setTradeType] = useState<TradeType>("buy");
+  const [tradeMode, setTradeMode] = useState<TradeMode>("buy");
   const [selectedHolding, setSelectedHolding] = useState<string>(holdings[0]?.id || "");
   const [amountText, setAmountText] = useState("");
   const [step, setStep] = useState<"form" | "confirm" | "success">("form");
+  const [mixAllocations, setMixAllocations] = useState<Record<string, number>>(() => {
+    const obj: Record<string, number> = {};
+    holdings.forEach((h) => { obj[h.id] = h.allocation; });
+    return obj;
+  });
 
   const amount = parseFloat(amountText) || 0;
   const holding = holdings.find((h) => h.id === selectedHolding);
-  const maxAmount = tradeType === "buy" ? cashBalance : (holding?.balance || 0);
-  const isValid = amount > 0 && amount <= maxAmount;
+  const maxAmount = tradeMode === "buy" ? cashBalance : (holding?.balance || 0);
+  const isValid = tradeMode === "mix" ? Object.values(mixAllocations).reduce((s, v) => s + v, 0) === 100 : (amount > 0 && amount <= maxAmount);
+  const mixTotal = Object.values(mixAllocations).reduce((s, v) => s + v, 0);
 
   const resetAndClose = () => {
     setAmountText("");
     setStep("form");
-    setTradeType("buy");
+    setTradeMode("buy");
     setSelectedHolding(holdings[0]?.id || "");
+    const obj: Record<string, number> = {};
+    holdings.forEach((h) => { obj[h.id] = h.allocation; });
+    setMixAllocations(obj);
     onClose();
   };
 
   const handleConfirm = () => {
     if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    const success = tradeType === "buy" ? onBuy(selectedHolding, amount) : onSell(selectedHolding, amount);
-    if (success) {
+    if (tradeMode === "mix") {
+      onChangeMix(Object.entries(mixAllocations).map(([id, allocation]) => ({ id, allocation })));
       setStep("success");
     } else {
-      Alert.alert("Trade Failed", "Unable to complete the trade. Please check your balance and try again.");
+      const success = tradeMode === "buy" ? onBuy(selectedHolding, amount) : onSell(selectedHolding, amount);
+      if (success) {
+        setStep("success");
+      } else {
+        Alert.alert("Trade Failed", "Unable to complete the trade. Please check your balance and try again.");
+      }
     }
   };
 
   const handleQuickAmount = (pct: number) => {
     const val = Math.floor(maxAmount * pct * 100) / 100;
     setAmountText(val.toFixed(2));
+    if (Platform.OS !== "web") Haptics.selectionAsync();
+  };
+
+  const handleMixChange = (holdingId: string, newValue: number) => {
+    setMixAllocations((prev) => ({ ...prev, [holdingId]: Math.max(0, Math.min(100, newValue)) }));
     if (Platform.OS !== "web") Haptics.selectionAsync();
   };
 
@@ -580,9 +624,13 @@ function TradeModal({
               <View style={tradeStyles.successIcon}>
                 <Ionicons name="checkmark" size={32} color={Colors.light.white} />
               </View>
-              <Text style={tradeStyles.successTitle}>Trade Complete</Text>
+              <Text style={tradeStyles.successTitle}>
+                {tradeMode === "mix" ? "Mix Updated" : "Trade Complete"}
+              </Text>
               <Text style={tradeStyles.successDesc}>
-                {tradeType === "buy" ? "Bought" : "Sold"} ${amount.toFixed(2)} of {holding?.ticker}
+                {tradeMode === "mix"
+                  ? "Your portfolio allocation has been updated"
+                  : `${tradeMode === "buy" ? "Bought" : "Sold"} $${amount.toFixed(2)} of ${holding?.ticker}`}
               </Text>
               <Pressable style={tradeStyles.doneBtn} onPress={resetAndClose}>
                 <Text style={tradeStyles.doneBtnText}>Done</Text>
@@ -590,132 +638,184 @@ function TradeModal({
             </View>
           ) : step === "confirm" ? (
             <View style={tradeStyles.confirmContainer}>
-              <Text style={tradeStyles.sheetTitle}>Confirm Trade</Text>
+              <Text style={tradeStyles.sheetTitle}>
+                {tradeMode === "mix" ? "Confirm New Mix" : "Confirm Trade"}
+              </Text>
               <View style={tradeStyles.confirmCard}>
-                <View style={tradeStyles.confirmRow}>
-                  <Text style={tradeStyles.confirmLabel}>Type</Text>
-                  <View style={[tradeStyles.confirmBadge, { backgroundColor: tradeType === "buy" ? Colors.light.successLight : Colors.light.dangerLight }]}>
-                    <Text style={[tradeStyles.confirmBadgeText, { color: tradeType === "buy" ? Colors.light.success : Colors.light.danger }]}>
-                      {tradeType === "buy" ? "Buy" : "Sell"}
-                    </Text>
-                  </View>
-                </View>
-                <View style={tradeStyles.confirmDivider} />
-                <View style={tradeStyles.confirmRow}>
-                  <Text style={tradeStyles.confirmLabel}>Asset</Text>
-                  <Text style={tradeStyles.confirmValue}>{holding?.ticker}</Text>
-                </View>
-                <View style={tradeStyles.confirmDivider} />
-                <View style={tradeStyles.confirmRow}>
-                  <Text style={tradeStyles.confirmLabel}>Amount</Text>
-                  <Text style={tradeStyles.confirmAmount}>${amount.toFixed(2)}</Text>
-                </View>
+                {tradeMode === "mix" ? (
+                  <>
+                    {holdings.map((h, i) => (
+                      <View key={h.id}>
+                        <View style={tradeStyles.confirmRow}>
+                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                            <View style={[tradeStyles.holdingDot, { backgroundColor: h.color }]} />
+                            <Text style={tradeStyles.confirmLabel}>{h.ticker}</Text>
+                          </View>
+                          <Text style={tradeStyles.confirmValue}>
+                            {h.allocation}% → {mixAllocations[h.id]}%
+                          </Text>
+                        </View>
+                        {i < holdings.length - 1 && <View style={tradeStyles.confirmDivider} />}
+                      </View>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    <View style={tradeStyles.confirmRow}>
+                      <Text style={tradeStyles.confirmLabel}>Type</Text>
+                      <View style={[tradeStyles.confirmBadge, { backgroundColor: tradeMode === "buy" ? Colors.light.successLight : Colors.light.dangerLight }]}>
+                        <Text style={[tradeStyles.confirmBadgeText, { color: tradeMode === "buy" ? Colors.light.success : Colors.light.danger }]}>
+                          {tradeMode === "buy" ? "Buy" : "Sell"}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={tradeStyles.confirmDivider} />
+                    <View style={tradeStyles.confirmRow}>
+                      <Text style={tradeStyles.confirmLabel}>Asset</Text>
+                      <Text style={tradeStyles.confirmValue}>{holding?.ticker}</Text>
+                    </View>
+                    <View style={tradeStyles.confirmDivider} />
+                    <View style={tradeStyles.confirmRow}>
+                      <Text style={tradeStyles.confirmLabel}>Amount</Text>
+                      <Text style={tradeStyles.confirmAmount}>${amount.toFixed(2)}</Text>
+                    </View>
+                  </>
+                )}
               </View>
               <View style={tradeStyles.confirmBtns}>
                 <Pressable style={tradeStyles.backBtn} onPress={() => setStep("form")}>
                   <Feather name="arrow-left" size={20} color={Colors.light.text} />
                 </Pressable>
                 <Pressable
-                  style={[tradeStyles.executeBtn, { backgroundColor: tradeType === "buy" ? Colors.light.tint : Colors.light.danger }]}
+                  style={[tradeStyles.executeBtn, { backgroundColor: tradeMode === "mix" ? Colors.light.accent : tradeMode === "buy" ? Colors.light.tint : Colors.light.danger }]}
                   onPress={handleConfirm}
                 >
                   <Text style={tradeStyles.executeBtnText}>
-                    {tradeType === "buy" ? "Confirm Buy" : "Confirm Sell"}
+                    {tradeMode === "mix" ? "Apply Changes" : tradeMode === "buy" ? "Confirm Buy" : "Confirm Sell"}
                   </Text>
                 </Pressable>
               </View>
             </View>
           ) : (
-            <>
+            <ScrollView showsVerticalScrollIndicator={false}>
               <Text style={tradeStyles.sheetTitle}>Trade</Text>
 
               <View style={tradeStyles.tabRow}>
-                <Pressable
-                  style={[tradeStyles.tab, tradeType === "buy" && tradeStyles.tabActiveBuy]}
-                  onPress={() => {
-                    setTradeType("buy");
-                    setAmountText("");
-                    if (Platform.OS !== "web") Haptics.selectionAsync();
-                  }}
-                >
-                  <Feather name="trending-up" size={16} color={tradeType === "buy" ? Colors.light.white : Colors.light.success} />
-                  <Text style={[tradeStyles.tabText, tradeType === "buy" && tradeStyles.tabTextActive]}>Buy</Text>
-                </Pressable>
-                <Pressable
-                  style={[tradeStyles.tab, tradeType === "sell" && tradeStyles.tabActiveSell]}
-                  onPress={() => {
-                    setTradeType("sell");
-                    setAmountText("");
-                    if (Platform.OS !== "web") Haptics.selectionAsync();
-                  }}
-                >
-                  <Feather name="trending-down" size={16} color={tradeType === "sell" ? Colors.light.white : Colors.light.danger} />
-                  <Text style={[tradeStyles.tabText, tradeType === "sell" && tradeStyles.tabTextActive]}>Sell</Text>
-                </Pressable>
-              </View>
-
-              <Text style={tradeStyles.fieldLabel}>Select Asset</Text>
-              <View style={tradeStyles.holdingPicker}>
-                {holdings.map((h) => (
+                {([
+                  { mode: "buy" as TradeMode, icon: "trending-up", label: "Buy", activeColor: Colors.light.success },
+                  { mode: "sell" as TradeMode, icon: "trending-down", label: "Sell", activeColor: Colors.light.danger },
+                  { mode: "mix" as TradeMode, icon: "sliders", label: "Change Mix", activeColor: Colors.light.accent },
+                ] as const).map((t) => (
                   <Pressable
-                    key={h.id}
-                    style={[tradeStyles.holdingChip, selectedHolding === h.id && tradeStyles.holdingChipActive]}
+                    key={t.mode}
+                    style={[tradeStyles.tab, tradeMode === t.mode && { backgroundColor: t.activeColor }]}
                     onPress={() => {
-                      setSelectedHolding(h.id);
+                      setTradeMode(t.mode);
                       setAmountText("");
+                      if (t.mode === "mix") {
+                        const obj: Record<string, number> = {};
+                        holdings.forEach((h) => { obj[h.id] = h.allocation; });
+                        setMixAllocations(obj);
+                      }
                       if (Platform.OS !== "web") Haptics.selectionAsync();
                     }}
+                    testID={`trade-tab-${t.mode}`}
                   >
-                    <View style={[tradeStyles.holdingDot, { backgroundColor: h.color }]} />
-                    <Text style={[tradeStyles.holdingChipText, selectedHolding === h.id && tradeStyles.holdingChipTextActive]}>
-                      {h.ticker}
+                    <Feather name={t.icon as any} size={16} color={tradeMode === t.mode ? Colors.light.white : t.activeColor} />
+                    <Text style={[tradeStyles.tabText, tradeMode === t.mode && tradeStyles.tabTextActive]}>{t.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {tradeMode === "mix" ? (
+                <>
+                  <Text style={tradeStyles.fieldLabel}>Adjust Allocation</Text>
+                  {holdings.map((h) => (
+                    <MixSliderItem
+                      key={h.id}
+                      holding={h}
+                      value={mixAllocations[h.id] ?? h.allocation}
+                      onChange={(v) => handleMixChange(h.id, v)}
+                    />
+                  ))}
+                  <Text style={[tradeStyles.availableText, { textAlign: "center", marginTop: 8, color: mixTotal === 100 ? Colors.light.success : Colors.light.danger }]}>
+                    Total: {mixTotal}% {mixTotal !== 100 ? `(must equal 100%)` : ""}
+                  </Text>
+                  <Pressable
+                    style={[tradeStyles.reviewBtn, { backgroundColor: Colors.light.accent }, !isValid && tradeStyles.reviewBtnDisabled]}
+                    onPress={() => { if (isValid) setStep("confirm"); }}
+                    disabled={!isValid}
+                    testID="trade-review-btn"
+                  >
+                    <Text style={tradeStyles.reviewBtnText}>Review Changes</Text>
+                  </Pressable>
+                </>
+              ) : (
+                <>
+                  <Text style={tradeStyles.fieldLabel}>Select Asset</Text>
+                  <View style={tradeStyles.holdingPicker}>
+                    {holdings.map((h) => (
+                      <Pressable
+                        key={h.id}
+                        style={[tradeStyles.holdingChip, selectedHolding === h.id && tradeStyles.holdingChipActive]}
+                        onPress={() => {
+                          setSelectedHolding(h.id);
+                          setAmountText("");
+                          if (Platform.OS !== "web") Haptics.selectionAsync();
+                        }}
+                      >
+                        <View style={[tradeStyles.holdingDot, { backgroundColor: h.color }]} />
+                        <Text style={[tradeStyles.holdingChipText, selectedHolding === h.id && tradeStyles.holdingChipTextActive]}>
+                          {h.ticker}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <Text style={tradeStyles.fieldLabel}>Amount</Text>
+                  <View style={tradeStyles.amountInputRow}>
+                    <Text style={tradeStyles.dollarSign}>$</Text>
+                    <TextInput
+                      style={tradeStyles.amountInput}
+                      value={amountText}
+                      onChangeText={(text) => setAmountText(text.replace(/[^0-9.]/g, ""))}
+                      placeholder="0.00"
+                      placeholderTextColor={Colors.light.textMuted}
+                      keyboardType="decimal-pad"
+                      testID="trade-amount-input"
+                    />
+                  </View>
+                  <Text style={tradeStyles.availableText}>
+                    {tradeMode === "buy"
+                      ? `Available cash: $${cashBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                      : `${holding?.ticker} balance: $${(holding?.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                  </Text>
+
+                  <View style={tradeStyles.quickRow}>
+                    {[0.25, 0.5, 0.75, 1].map((pct) => (
+                      <Pressable key={pct} style={tradeStyles.quickBtn} onPress={() => handleQuickAmount(pct)}>
+                        <Text style={tradeStyles.quickBtnText}>{pct === 1 ? "Max" : `${pct * 100}%`}</Text>
+                      </Pressable>
+                    ))}
+                  </View>
+
+                  <Pressable
+                    style={[
+                      tradeStyles.reviewBtn,
+                      { backgroundColor: tradeMode === "buy" ? Colors.light.tint : Colors.light.danger },
+                      !isValid && tradeStyles.reviewBtnDisabled,
+                    ]}
+                    onPress={() => { if (isValid) setStep("confirm"); }}
+                    disabled={!isValid}
+                    testID="trade-review-btn"
+                  >
+                    <Text style={tradeStyles.reviewBtnText}>
+                      Review {tradeMode === "buy" ? "Buy" : "Sell"} Order
                     </Text>
                   </Pressable>
-                ))}
-              </View>
-
-              <Text style={tradeStyles.fieldLabel}>Amount</Text>
-              <View style={tradeStyles.amountInputRow}>
-                <Text style={tradeStyles.dollarSign}>$</Text>
-                <TextInput
-                  style={tradeStyles.amountInput}
-                  value={amountText}
-                  onChangeText={(text) => setAmountText(text.replace(/[^0-9.]/g, ""))}
-                  placeholder="0.00"
-                  placeholderTextColor={Colors.light.textMuted}
-                  keyboardType="decimal-pad"
-                  testID="trade-amount-input"
-                />
-              </View>
-              <Text style={tradeStyles.availableText}>
-                {tradeType === "buy"
-                  ? `Available cash: $${cashBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  : `${holding?.ticker} balance: $${(holding?.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              </Text>
-
-              <View style={tradeStyles.quickRow}>
-                {[0.25, 0.5, 0.75, 1].map((pct) => (
-                  <Pressable key={pct} style={tradeStyles.quickBtn} onPress={() => handleQuickAmount(pct)}>
-                    <Text style={tradeStyles.quickBtnText}>{pct === 1 ? "Max" : `${pct * 100}%`}</Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              <Pressable
-                style={[
-                  tradeStyles.reviewBtn,
-                  { backgroundColor: tradeType === "buy" ? Colors.light.tint : Colors.light.danger },
-                  !isValid && tradeStyles.reviewBtnDisabled,
-                ]}
-                onPress={() => { if (isValid) setStep("confirm"); }}
-                disabled={!isValid}
-                testID="trade-review-btn"
-              >
-                <Text style={tradeStyles.reviewBtnText}>
-                  Review {tradeType === "buy" ? "Buy" : "Sell"} Order
-                </Text>
-              </Pressable>
-            </>
+                </>
+              )}
+            </ScrollView>
           )}
         </View>
       </KeyboardAvoidingView>
@@ -986,6 +1086,55 @@ const tradeStyles = StyleSheet.create({
     fontSize: 16,
     color: Colors.light.white,
   },
+  mixItem: {
+    backgroundColor: Colors.light.borderLight,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
+  },
+  mixItemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 10,
+  },
+  mixItemTicker: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.text,
+    flex: 1,
+  },
+  mixItemPct: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 18,
+    color: Colors.light.text,
+  },
+  mixSliderTrack: {
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: Colors.light.border,
+    marginBottom: 10,
+    overflow: "hidden" as const,
+  },
+  mixSliderFill: {
+    height: 8,
+    borderRadius: 4,
+  },
+  mixBtnRow: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    gap: 12,
+  },
+  mixAdjustBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.light.card,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+  },
 });
 
 const periods: TimePeriod[] = ["1D", "1W", "1M", "YTD", "1Y"];
@@ -997,13 +1146,10 @@ export default function InvestmentsScreen() {
     cashBalance,
     holdings,
     autoInvestEnabled,
-    firstDollarEnabled,
-    roundUpEnabled,
     toggleAutoInvest,
-    toggleFirstDollar,
-    toggleRoundUp,
     buyHolding,
     sellHolding,
+    updatePortfolioMix,
   } = useHSA();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("1M");
@@ -1026,7 +1172,7 @@ export default function InvestmentsScreen() {
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 : 100 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 + 80 : 180 }]}
         contentInsetAdjustmentBehavior="automatic"
       >
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(100).duration(500) : undefined}>
@@ -1042,30 +1188,6 @@ export default function InvestmentsScreen() {
               <Ionicons name="arrow-up" size={14} color="rgba(255,255,255,0.8)" />
               <Text style={styles.portReturn}>+${totalReturn.toFixed(0)} ({((totalReturn / investedBalance) * 100).toFixed(1)}%)</Text>
               <Text style={styles.portReturnLabel}>all time</Text>
-            </View>
-            <View style={styles.tradeBtnRow}>
-              <Pressable
-                style={styles.tradeBtnBuy}
-                onPress={() => {
-                  setTradeModalVisible(true);
-                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                }}
-                testID="buy-btn"
-              >
-                <Feather name="trending-up" size={16} color={Colors.light.white} />
-                <Text style={styles.tradeBtnText}>Buy</Text>
-              </Pressable>
-              <Pressable
-                style={styles.tradeBtnSell}
-                onPress={() => {
-                  setTradeModalVisible(true);
-                  if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                }}
-                testID="sell-btn"
-              >
-                <Feather name="trending-down" size={16} color={Colors.light.white} />
-                <Text style={styles.tradeBtnText}>Sell</Text>
-              </Pressable>
             </View>
           </LinearGradient>
         </Animated.View>
@@ -1127,7 +1249,7 @@ export default function InvestmentsScreen() {
 
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(400).duration(500) : undefined}>
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Auto-Invest Settings</Text>
+            <Text style={styles.sectionTitle}>Investment Settings</Text>
             <SettingToggle
               icon="zap"
               title="Auto-Invest"
@@ -1137,27 +1259,23 @@ export default function InvestmentsScreen() {
               iconColor={Colors.light.accent}
               iconBg={Colors.light.accentLight}
             />
-            <SettingToggle
-              icon="dollar-sign"
-              title="First Dollar Investing"
-              subtitle="Start investing from your very first dollar"
-              enabled={firstDollarEnabled}
-              onToggle={toggleFirstDollar}
-              iconColor={Colors.light.tint}
-              iconBg={Colors.light.tintLight}
-            />
-            <SettingToggle
-              icon="repeat"
-              title="Round-Up Investing"
-              subtitle="Invest spare change from HSA purchases"
-              enabled={roundUpEnabled}
-              onToggle={toggleRoundUp}
-              iconColor="#8B5CF6"
-              iconBg="#F3F0FF"
-            />
           </View>
         </Animated.View>
       </ScrollView>
+
+      <View style={styles.tradeButtonContainer}>
+        <Pressable
+          style={styles.tradeButton}
+          onPress={() => {
+            setTradeModalVisible(true);
+            if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+          }}
+          testID="trade-btn"
+        >
+          <Feather name="repeat" size={20} color={Colors.light.white} />
+          <Text style={styles.tradeButtonText}>Trade</Text>
+        </Pressable>
+      </View>
 
       <TradeModal
         visible={tradeModalVisible}
@@ -1166,6 +1284,7 @@ export default function InvestmentsScreen() {
         cashBalance={cashBalance}
         onBuy={buyHolding}
         onSell={sellHolding}
+        onChangeMix={updatePortfolioMix}
       />
     </View>
   );
@@ -1219,38 +1338,32 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.5)",
     marginLeft: 4,
   },
-  tradeBtnRow: {
-    flexDirection: "row",
-    gap: 12,
-    marginTop: 16,
+  tradeButtonContainer: {
+    position: "absolute" as const,
+    bottom: Platform.OS === "web" ? 34 + 50 + 16 : 100,
+    left: 20,
+    right: 20,
+    alignItems: "center",
   },
-  tradeBtnBuy: {
-    flex: 1,
+  tradeButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.25)",
+    gap: 8,
+    backgroundColor: Colors.light.tint,
+    paddingVertical: 16,
+    paddingHorizontal: 48,
+    borderRadius: 16,
+    width: "100%",
+    shadowColor: Colors.light.tint,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
-  tradeBtnSell: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: 12,
-    backgroundColor: "rgba(255,255,255,0.12)",
-    borderWidth: 1,
-    borderColor: "rgba(255,255,255,0.18)",
-  },
-  tradeBtnText: {
+  tradeButtonText: {
     fontFamily: "DMSans_700Bold",
-    fontSize: 15,
+    fontSize: 17,
     color: Colors.light.white,
   },
   section: {
