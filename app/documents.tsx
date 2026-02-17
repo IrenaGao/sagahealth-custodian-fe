@@ -133,7 +133,7 @@ export default function DocumentsScreen() {
           <Feather name="arrow-left" size={22} color={Colors.light.text} />
         </Pressable>
         <Text style={s.headerTitle}>Documents</Text>
-        <View style={{ width: 36 }} />
+        <View style={s.backBtn} />
       </View>
 
       <View style={s.catRow}>
@@ -193,7 +193,7 @@ const s = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 6,
   },
   backBtn: {
     width: 36,
