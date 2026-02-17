@@ -576,14 +576,16 @@ function TradeModal({
   const mixTotal = Object.values(mixAllocations).reduce((s, v) => s + v, 0);
 
   const resetAndClose = () => {
-    setAmountText("");
-    setStep("form");
-    setTradeMode("buy");
-    setSelectedHolding(holdings[0]?.id || "");
-    const obj: Record<string, number> = {};
-    holdings.forEach((h) => { obj[h.id] = h.allocation; });
-    setMixAllocations(obj);
     onClose();
+    setTimeout(() => {
+      setAmountText("");
+      setStep("form");
+      setTradeMode("buy");
+      setSelectedHolding(holdings[0]?.id || "");
+      const obj: Record<string, number> = {};
+      holdings.forEach((h) => { obj[h.id] = h.allocation; });
+      setMixAllocations(obj);
+    }, 300);
   };
 
   const handleConfirm = () => {
