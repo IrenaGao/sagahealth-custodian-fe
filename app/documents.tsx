@@ -18,7 +18,7 @@ import Colors from "@/constants/colors";
 interface Document {
   id: string;
   title: string;
-  category: "tax" | "statement" | "form" | "correspondence" | "eob";
+  category: "tax" | "statement";
   date: string;
   fileSize: string;
   description: string;
@@ -28,30 +28,20 @@ const DOCUMENTS: Document[] = [
   { id: "d1", title: "2025 Form 1099-SA", category: "tax", date: "2026-01-31", fileSize: "124 KB", description: "Distribution statement for tax year 2025" },
   { id: "d2", title: "2025 Form 5498-SA", category: "tax", date: "2026-01-31", fileSize: "98 KB", description: "Contribution information for tax year 2025" },
   { id: "d3", title: "2025 Year-End Summary", category: "tax", date: "2026-01-15", fileSize: "256 KB", description: "Annual account activity and tax summary" },
-  { id: "d4", title: "January 2026 Statement", category: "statement", date: "2026-02-01", fileSize: "185 KB", description: "Monthly account statement" },
-  { id: "d5", title: "December 2025 Statement", category: "statement", date: "2026-01-01", fileSize: "192 KB", description: "Monthly account statement" },
-  { id: "d6", title: "November 2025 Statement", category: "statement", date: "2025-12-01", fileSize: "178 KB", description: "Monthly account statement" },
-  { id: "d7", title: "October 2025 Statement", category: "statement", date: "2025-11-01", fileSize: "165 KB", description: "Monthly account statement" },
-  { id: "d8", title: "September 2025 Statement", category: "statement", date: "2025-10-01", fileSize: "171 KB", description: "Monthly account statement" },
-  { id: "d9", title: "HSA Custodial Agreement", category: "form", date: "2025-08-15", fileSize: "342 KB", description: "Account terms and conditions" },
-  { id: "d10", title: "Investment Policy Statement", category: "form", date: "2025-08-15", fileSize: "215 KB", description: "Your investment preferences and risk profile" },
-  { id: "d11", title: "Beneficiary Designation Form", category: "form", date: "2025-08-15", fileSize: "89 KB", description: "Current beneficiary designations" },
-  { id: "d12", title: "Fee Schedule 2026", category: "form", date: "2026-01-01", fileSize: "67 KB", description: "Current fee schedule and pricing" },
-  { id: "d13", title: "EOB - Dr. Johnson Visit", category: "eob", date: "2026-02-12", fileSize: "145 KB", description: "Explanation of benefits for annual physical" },
-  { id: "d14", title: "EOB - CVS Pharmacy", category: "eob", date: "2026-02-06", fileSize: "112 KB", description: "Explanation of benefits for prescription" },
-  { id: "d15", title: "EOB - Zenni Optical", category: "eob", date: "2026-01-22", fileSize: "128 KB", description: "Explanation of benefits for eye exam" },
-  { id: "d16", title: "Account Welcome Letter", category: "correspondence", date: "2025-08-15", fileSize: "56 KB", description: "Welcome to Saga Health HSA" },
-  { id: "d17", title: "Contribution Limit Notice", category: "correspondence", date: "2026-01-05", fileSize: "42 KB", description: "2026 IRS contribution limits notification" },
-  { id: "d18", title: "Investment Change Confirmation", category: "correspondence", date: "2026-01-20", fileSize: "38 KB", description: "Portfolio allocation update confirmation" },
+  { id: "d4", title: "2024 Form 1099-SA", category: "tax", date: "2025-01-31", fileSize: "118 KB", description: "Distribution statement for tax year 2024" },
+  { id: "d5", title: "2024 Form 5498-SA", category: "tax", date: "2025-01-31", fileSize: "94 KB", description: "Contribution information for tax year 2024" },
+  { id: "d6", title: "January 2026 Statement", category: "statement", date: "2026-02-01", fileSize: "185 KB", description: "Monthly account statement" },
+  { id: "d7", title: "December 2025 Statement", category: "statement", date: "2026-01-01", fileSize: "192 KB", description: "Monthly account statement" },
+  { id: "d8", title: "November 2025 Statement", category: "statement", date: "2025-12-01", fileSize: "178 KB", description: "Monthly account statement" },
+  { id: "d9", title: "October 2025 Statement", category: "statement", date: "2025-11-01", fileSize: "165 KB", description: "Monthly account statement" },
+  { id: "d10", title: "September 2025 Statement", category: "statement", date: "2025-10-01", fileSize: "171 KB", description: "Monthly account statement" },
+  { id: "d11", title: "August 2025 Statement", category: "statement", date: "2025-09-01", fileSize: "158 KB", description: "Monthly account statement" },
 ];
 
 const CATEGORIES = [
   { key: "all", label: "All", icon: "folder" },
   { key: "tax", label: "Tax Documents", icon: "file-text" },
   { key: "statement", label: "Statements", icon: "bar-chart-2" },
-  { key: "form", label: "Forms", icon: "clipboard" },
-  { key: "eob", label: "EOBs", icon: "heart" },
-  { key: "correspondence", label: "Letters", icon: "mail" },
 ] as const;
 
 function formatDate(dateStr: string) {
@@ -63,9 +53,6 @@ function getCategoryColor(category: string) {
   switch (category) {
     case "tax": return { bg: "#FEF3C7", fg: "#B45309" };
     case "statement": return { bg: "#DBEAFE", fg: "#2563EB" };
-    case "form": return { bg: Colors.light.tintLight, fg: Colors.light.tint };
-    case "eob": return { bg: "#FCE7F3", fg: "#DB2777" };
-    case "correspondence": return { bg: "#E0E7FF", fg: "#4F46E5" };
     default: return { bg: Colors.light.borderLight, fg: Colors.light.textMuted };
   }
 }
@@ -74,9 +61,6 @@ function getCategoryIcon(category: string) {
   switch (category) {
     case "tax": return "file-text";
     case "statement": return "bar-chart-2";
-    case "form": return "clipboard";
-    case "eob": return "heart";
-    case "correspondence": return "mail";
     default: return "file";
   }
 }
@@ -152,12 +136,7 @@ export default function DocumentsScreen() {
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.catRow}
-        style={s.catScroll}
-      >
+      <View style={s.catRow}>
         {CATEGORIES.map((cat) => {
           const isActive = activeCategory === cat.key;
           return (
@@ -171,7 +150,7 @@ export default function DocumentsScreen() {
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -229,8 +208,7 @@ const s = StyleSheet.create({
     fontSize: 20,
     color: Colors.light.text,
   },
-  catScroll: { maxHeight: 44, marginBottom: 8 },
-  catRow: { paddingHorizontal: 20, gap: 8 },
+  catRow: { flexDirection: "row", paddingHorizontal: 20, gap: 8, marginBottom: 8 },
   catPill: {
     flexDirection: "row",
     alignItems: "center",
