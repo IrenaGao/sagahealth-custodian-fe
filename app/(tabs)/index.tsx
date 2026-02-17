@@ -668,10 +668,10 @@ export default function HomeScreen() {
             />
             <QuickAction
               icon="activity"
-              label="Auto Invest"
+              label="Invest"
               color="#8B5CF6"
               bgColor="#F3F0FF"
-              onPress={() => {}}
+              onPress={() => router.push("/(tabs)/investments")}
             />
           </View>
         </Animated.View>
