@@ -8,6 +8,7 @@ import {
   Platform,
   Modal,
   TextInput,
+  Alert,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -284,11 +285,13 @@ function AutoReimburseModal({
   visible,
   onClose,
   totalUnreimbursed,
+  cashBalance,
   onReimburse,
 }: {
   visible: boolean;
   onClose: () => void;
   totalUnreimbursed: number;
+  cashBalance: number;
   onReimburse: (amount: number) => void;
 }) {
   const presets = useMemo(() => {
@@ -308,12 +311,32 @@ function AutoReimburseModal({
 
   const effectiveAmount = useCustom ? (parseFloat(customAmount) || 0) : selectedAmount;
   const isValid = effectiveAmount > 0 && effectiveAmount <= totalUnreimbursed;
+  const exceedsCash = effectiveAmount > cashBalance;
+  const sellAmount = exceedsCash ? effectiveAmount - cashBalance : 0;
 
   const handleReimburse = () => {
     if (!isValid) return;
-    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    onReimburse(effectiveAmount);
-    onClose();
+    if (exceedsCash) {
+      Alert.alert(
+        "Investment Sell Required",
+        `Your cash balance is $${cashBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })}. To reimburse $${effectiveAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}, $${sellAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} will need to come from selling your investments proportionally.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Continue",
+            onPress: () => {
+              if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              onReimburse(effectiveAmount);
+              onClose();
+            },
+          },
+        ]
+      );
+    } else {
+      if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      onReimburse(effectiveAmount);
+      onClose();
+    }
   };
 
   return (
@@ -371,6 +394,15 @@ function AutoReimburseModal({
             <Text style={reimburseModalStyles.errorText}>
               Amount exceeds your unreimbursed balance
             </Text>
+          )}
+
+          {isValid && exceedsCash && (
+            <View style={reimburseModalStyles.warningCard}>
+              <Feather name="alert-triangle" size={16} color="#B45309" />
+              <Text style={reimburseModalStyles.warningText}>
+                ${sellAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })} will come from selling investments (cash balance: ${cashBalance.toLocaleString(undefined, { minimumFractionDigits: 2 })})
+              </Text>
+            </View>
           )}
 
           <Pressable
@@ -490,6 +522,21 @@ const reimburseModalStyles = StyleSheet.create({
     color: Colors.light.danger,
     marginBottom: 8,
   },
+  warningCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#FEF3C7",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 4,
+  },
+  warningText: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 12,
+    color: "#92400E",
+    flex: 1,
+  },
   reimburseBtn: {
     flexDirection: "row",
     alignItems: "center",
@@ -509,11 +556,13 @@ const reimburseModalStyles = StyleSheet.create({
 function ReceiptsDashboard({
   receipts,
   totalUnreimbursed,
+  cashBalance,
   onAutoReimburse,
   onAddReceipt,
 }: {
   receipts: Receipt[];
   totalUnreimbursed: number;
+  cashBalance: number;
   onAutoReimburse: (amount: number) => void;
   onAddReceipt: () => void;
 }) {
@@ -676,6 +725,7 @@ function ReceiptsDashboard({
         visible={showAutoReimburse}
         onClose={() => setShowAutoReimburse(false)}
         totalUnreimbursed={totalUnreimbursed}
+        cashBalance={cashBalance}
         onReimburse={onAutoReimburse}
       />
     </Animated.View>
@@ -2225,7 +2275,7 @@ const modalStyles = StyleSheet.create({
 
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
-  const { balance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, autoReimburse, userName, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard, linkedBankAccounts, addLinkedBankAccount, removeLinkedBankAccount, setPrimaryBankAccount } = useHSA();
+  const { balance, cashBalance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, autoReimburse, userName, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard, linkedBankAccounts, addLinkedBankAccount, removeLinkedBankAccount, setPrimaryBankAccount } = useHSA();
   const [showAddCard, setShowAddCard] = useState(false);
   const [showBankAccounts, setShowBankAccounts] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -2253,6 +2303,7 @@ export default function AccountsScreen() {
           <ReceiptsDashboard
             receipts={receipts}
             totalUnreimbursed={totalUnreimbursed}
+            cashBalance={cashBalance}
             onAutoReimburse={autoReimburse}
             onAddReceipt={() => setShowAddReceipt(true)}
           />
