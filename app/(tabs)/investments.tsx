@@ -1174,7 +1174,7 @@ export default function InvestmentsScreen() {
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 + 80 : 180 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 : 100 }]}
         contentInsetAdjustmentBehavior="automatic"
       >
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(100).duration(500) : undefined}>
@@ -1263,9 +1263,7 @@ export default function InvestmentsScreen() {
             />
           </View>
         </Animated.View>
-      </ScrollView>
 
-      <View style={styles.tradeButtonContainer}>
         <Pressable
           style={styles.tradeButton}
           onPress={() => {
@@ -1277,7 +1275,7 @@ export default function InvestmentsScreen() {
           <Feather name="repeat" size={20} color={Colors.light.white} />
           <Text style={styles.tradeButtonText}>Trade</Text>
         </Pressable>
-      </View>
+      </ScrollView>
 
       <TradeModal
         visible={tradeModalVisible}
@@ -1340,13 +1338,6 @@ const styles = StyleSheet.create({
     color: "rgba(255,255,255,0.5)",
     marginLeft: 4,
   },
-  tradeButtonContainer: {
-    position: "absolute" as const,
-    bottom: Platform.OS === "web" ? 34 + 50 + 16 : 100,
-    left: 20,
-    right: 20,
-    alignItems: "center",
-  },
   tradeButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -1354,9 +1345,8 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: Colors.light.tint,
     paddingVertical: 16,
-    paddingHorizontal: 48,
     borderRadius: 16,
-    width: "100%",
+    marginBottom: 16,
     shadowColor: Colors.light.tint,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
