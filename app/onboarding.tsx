@@ -31,7 +31,7 @@ const banks = [
   { id: "usbank", name: "US Bank" },
 ];
 
-const presetAmounts = [50, 100, 200, 500, 1000];
+const presetAmounts = [25, 50, 100, 200];
 
 const frequencies = ["One-time", "Weekly", "Monthly"];
 
@@ -92,7 +92,9 @@ export default function OnboardingScreen() {
   const [bankSearch, setBankSearch] = useState("");
   const [connectingBank, setConnectingBank] = useState<string | null>(null);
 
-  const [contributionAmount, setContributionAmount] = useState(200);
+  const [contributionAmount, setContributionAmount] = useState(0);
+  const [customAmountMode, setCustomAmountMode] = useState(false);
+  const [customAmountText, setCustomAmountText] = useState("");
   const [frequency, setFrequency] = useState("One-time");
 
   const [fundsAvailable, setFundsAvailable] = useState(false);
@@ -118,6 +120,10 @@ export default function OnboardingScreen() {
 
   useEffect(() => {
     if (step === 7) {
+      if (contributionAmount <= 0) {
+        setStep(8);
+        return;
+      }
       setFundsAvailable(false);
       const t = setTimeout(() => setFundsAvailable(true), 3000);
       return () => clearTimeout(t);
@@ -431,23 +437,82 @@ export default function OnboardingScreen() {
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Set Your Contribution</Text>
             <Text style={styles.stepSubtitle}>How much would you like to contribute?</Text>
-            <Text style={styles.amountDisplay}>${contributionAmount.toLocaleString()}</Text>
-            <View style={styles.presetRow}>
-              {presetAmounts.map((amt) => (
+            {customAmountMode ? (
+              <View style={styles.customAmountWrap}>
+                <View style={styles.customAmountInputRow}>
+                  <Text style={styles.customDollarSign}>$</Text>
+                  <TextInput
+                    style={styles.customAmountInput}
+                    value={customAmountText}
+                    onChangeText={(text) => {
+                      const cleaned = text.replace(/[^0-9.]/g, "");
+                      const parts = cleaned.split(".");
+                      const formatted = parts.length > 2 ? parts[0] + "." + parts.slice(1).join("") : cleaned;
+                      setCustomAmountText(formatted);
+                      const val = parseFloat(formatted);
+                      if (!isNaN(val) && val >= 0.01 && val <= annualLimit) {
+                        setContributionAmount(val);
+                      } else if (formatted === "" || val === 0) {
+                        setContributionAmount(0);
+                      }
+                    }}
+                    placeholder="0.00"
+                    placeholderTextColor={Colors.light.textMuted}
+                    keyboardType="decimal-pad"
+                    autoFocus
+                    testID="custom-amount-input"
+                  />
+                </View>
+                <Text style={styles.customAmountHint}>
+                  Enter $0.01 to ${annualLimit.toLocaleString()}
+                </Text>
                 <Pressable
-                  key={amt}
-                  style={[styles.presetBtn, contributionAmount === amt && styles.presetBtnActive]}
+                  style={styles.customBackLink}
                   onPress={() => {
+                    setCustomAmountMode(false);
+                    setCustomAmountText("");
+                    setContributionAmount(0);
                     if (Platform.OS !== "web") Haptics.selectionAsync();
-                    setContributionAmount(amt);
                   }}
                 >
-                  <Text style={[styles.presetBtnText, contributionAmount === amt && styles.presetBtnTextActive]}>
-                    ${amt >= 1000 ? `${(amt / 1000).toFixed(0)},000` : amt}
-                  </Text>
+                  <Feather name="arrow-left" size={14} color={Colors.light.tint} />
+                  <Text style={styles.customBackLinkText}>Back to presets</Text>
                 </Pressable>
-              ))}
-            </View>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.amountDisplay}>
+                  {contributionAmount > 0 ? `$${contributionAmount.toLocaleString()}` : "Select amount"}
+                </Text>
+                <View style={styles.presetRow}>
+                  {presetAmounts.map((amt) => (
+                    <Pressable
+                      key={amt}
+                      style={[styles.presetBtn, contributionAmount === amt && !customAmountMode && styles.presetBtnActive]}
+                      onPress={() => {
+                        if (Platform.OS !== "web") Haptics.selectionAsync();
+                        setContributionAmount(amt);
+                      }}
+                    >
+                      <Text style={[styles.presetBtnText, contributionAmount === amt && !customAmountMode && styles.presetBtnTextActive]}>
+                        ${amt}
+                      </Text>
+                    </Pressable>
+                  ))}
+                  <Pressable
+                    style={[styles.presetBtn, styles.customBtn]}
+                    onPress={() => {
+                      setCustomAmountMode(true);
+                      setContributionAmount(0);
+                      if (Platform.OS !== "web") Haptics.selectionAsync();
+                    }}
+                  >
+                    <Feather name="edit-2" size={14} color={Colors.light.textSecondary} style={{ marginRight: 4 }} />
+                    <Text style={styles.presetBtnText}>Custom</Text>
+                  </Pressable>
+                </View>
+              </>
+            )}
             <View style={styles.freqRow}>
               {frequencies.map((f) => (
                 <Pressable
@@ -469,6 +534,18 @@ export default function OnboardingScreen() {
             {catchUp > 0 && (
               <Text style={styles.catchUpText}>Includes {catchUp > 1000 ? "$2,000" : "$1,000"} catch-up contribution</Text>
             )}
+            <Pressable
+              style={styles.skipContributionBtn}
+              onPress={() => {
+                if (Platform.OS !== "web") Haptics.selectionAsync();
+                setContributionAmount(0);
+                setStep(step + 1);
+              }}
+              testID="skip-contribution-btn"
+            >
+              <Text style={styles.skipContributionText}>Skip for now</Text>
+              <Feather name="chevron-right" size={16} color={Colors.light.textMuted} />
+            </Pressable>
           </Animated.View>
         );
 
@@ -996,6 +1073,71 @@ const styles = StyleSheet.create({
   },
   presetBtnTextActive: {
     color: Colors.light.tint,
+  },
+  customBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  customAmountWrap: {
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  customAmountInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: Colors.light.card,
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: Colors.light.tint,
+    paddingHorizontal: 20,
+    paddingVertical: 4,
+    marginBottom: 8,
+    alignSelf: "center",
+  },
+  customDollarSign: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 36,
+    color: Colors.light.tint,
+    marginRight: 4,
+  },
+  customAmountInput: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 36,
+    color: Colors.light.tint,
+    minWidth: 100,
+    paddingVertical: 10,
+    textAlign: "left" as const,
+  },
+  customAmountHint: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.textMuted,
+    marginBottom: 12,
+  },
+  customBackLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingVertical: 6,
+    marginBottom: 8,
+  },
+  customBackLinkText: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 14,
+    color: Colors.light.tint,
+  },
+  skipContributionBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingVertical: 14,
+    marginTop: 8,
+  },
+  skipContributionText: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 15,
+    color: Colors.light.textMuted,
   },
   freqRow: {
     flexDirection: "row",
