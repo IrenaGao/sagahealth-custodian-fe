@@ -95,6 +95,7 @@ export interface HSAContextValue {
   hasCompletedOnboarding: boolean;
   isLoading: boolean;
   userName: string;
+  portfolioIndex: number;
   totalUnreimbursed: number;
   linkedCards: LinkedCard[];
   linkedBankAccounts: LinkedBankAccount[];
@@ -110,18 +111,28 @@ export interface HSAContextValue {
   toggleAutoInvest: () => void;
   toggleFirstDollar: () => void;
   toggleRoundUp: () => void;
-  completeOnboarding: (name?: string) => void;
+  completeOnboarding: (name?: string, portfolioIndex?: number, customTickers?: { ticker: string; name: string; allocation: number }[]) => void;
   buyHolding: (holdingId: string, amount: number) => boolean;
+  buyNewTicker: (ticker: string, name: string, amount: number) => boolean;
   sellHolding: (holdingId: string, amount: number) => boolean;
   buyProportional: (amount: number) => boolean;
   sellProportional: (amount: number) => boolean;
   updatePortfolioMix: (newAllocations: { id: string; allocation: number }[]) => void;
+  applyPortfolioPreset: (index: number) => void;
   logout: () => void;
 }
 
 const HSAContext = createContext<HSAContextValue | null>(null);
 
 const STORAGE_KEY = "saga_health_data";
+
+export const PORTFOLIO_PRESETS = [
+  { label: "Conservative", stocks: 20, bonds: 60, cash: 20 },
+  { label: "Moderately Conservative", stocks: 40, bonds: 45, cash: 15 },
+  { label: "Moderate", stocks: 60, bonds: 30, cash: 10 },
+  { label: "Moderately Aggressive", stocks: 75, bonds: 20, cash: 5 },
+  { label: "Aggressive", stocks: 90, bonds: 8, cash: 2 },
+] as const;
 
 const defaultHoldings: InvestmentHolding[] = [
   { id: "1", name: "Stocks", ticker: "Stocks", allocation: 60, balance: 5130, returnPercent: 12.8, color: "#2E5E3F" },
@@ -174,6 +185,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState("");
+  const [portfolioIndex, setPortfolioIndex] = useState(2);
 
   useEffect(() => {
     loadData();
@@ -193,6 +205,9 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       if (data.autoInvestEnabled !== undefined) setAutoInvestEnabled(data.autoInvestEnabled as boolean);
       if (data.firstDollarEnabled !== undefined) setFirstDollarEnabled(data.firstDollarEnabled as boolean);
       if (data.roundUpEnabled !== undefined) setRoundUpEnabled(data.roundUpEnabled as boolean);
+      if (typeof data.portfolioIndex === "number" && data.portfolioIndex >= 0 && data.portfolioIndex <= 4) {
+        setPortfolioIndex(data.portfolioIndex as number);
+      }
     }
     setIsLoading(false);
   };
@@ -355,6 +370,38 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     return true;
   };
 
+  const HOLDING_COLORS_NEW = ["#2E5E3F", "#4A8BA8", "#D4A574", "#8B6B9C", "#C45B4A"];
+
+  const buyNewTicker = (ticker: string, name: string, amount: number): boolean => {
+    const cash = balance - investedBalance;
+    if (amount <= 0 || amount > cash) return false;
+    const existing = holdings.find((h) => h.ticker === ticker);
+    if (existing) return buyHolding(existing.id, amount);
+    const newId = "custom-" + Date.now();
+    const color = HOLDING_COLORS_NEW[holdings.length % HOLDING_COLORS_NEW.length];
+    const newHolding: InvestmentHolding = {
+      id: newId,
+      name,
+      ticker,
+      allocation: 0,
+      balance: amount,
+      returnPercent: 8 + Math.random() * 12,
+      color,
+    };
+    setInvestedBalance((prev) => prev + amount);
+    setHoldings((prev) => {
+      const totalInvested = prev.reduce((s, h) => s + h.balance, 0) + amount;
+      return [...prev.map((h) => ({ ...h, allocation: Math.round((h.balance / totalInvested) * 100) })), { ...newHolding, allocation: Math.round((amount / totalInvested) * 100) }];
+    });
+    const today = new Date().toISOString().split("T")[0];
+    const txId = "t" + Date.now().toString() + Math.random().toString(36).substr(2, 4);
+    setTransactions((prev) => [
+      { id: txId, type: "investment", amount: -amount, description: `Buy ${ticker}`, date: today, category: "investment" },
+      ...prev,
+    ]);
+    return true;
+  };
+
   const sellHolding = (holdingId: string, amount: number): boolean => {
     const holding = holdings.find((h) => h.id === holdingId);
     if (!holding || amount <= 0 || amount > holding.balance) return false;
@@ -436,10 +483,67 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     );
   };
 
-  const completeOnboarding = (name?: string) => {
+  const applyPortfolioPreset = (index: number) => {
+    if (index < 0 || index >= PORTFOLIO_PRESETS.length) return;
+    const preset = PORTFOLIO_PRESETS[index];
+    const totalInvested = holdings.reduce((s, h) => s + h.balance, 0);
+    const hasStandardHoldings = holdings.some((h) => h.id === "1" || h.id === "2" || h.id === "3");
+    if (hasStandardHoldings) {
+      updatePortfolioMix([
+        { id: "1", allocation: preset.stocks },
+        { id: "2", allocation: preset.bonds },
+        { id: "3", allocation: preset.cash },
+      ]);
+    } else if (totalInvested > 0) {
+      setHoldings([
+        { id: "1", name: "Stocks", ticker: "Stocks", allocation: preset.stocks, balance: Math.round(totalInvested * (preset.stocks / 100) * 100) / 100, returnPercent: 12.8, color: "#2E5E3F" },
+        { id: "2", name: "Bonds", ticker: "Bonds", allocation: preset.bonds, balance: Math.round(totalInvested * (preset.bonds / 100) * 100) / 100, returnPercent: 3.8, color: "#4A8BA8" },
+        { id: "3", name: "Cash", ticker: "Cash", allocation: preset.cash, balance: Math.round(totalInvested * (preset.cash / 100) * 100) / 100, returnPercent: 0.5, color: "#D4A574" },
+      ]);
+    }
+    setPortfolioIndex(index);
+    saveData({ portfolioIndex: index });
+  };
+
+  const HOLDING_COLORS = ["#2E5E3F", "#4A8BA8", "#D4A574", "#8B6B9C", "#C45B4A"];
+
+  const completeOnboarding = (name?: string, newPortfolioIndex?: number, customTickers?: { ticker: string; name: string; allocation: number }[]) => {
     setHasCompletedOnboarding(true);
     if (name) setUserName(name);
-    saveData({ hasCompletedOnboarding: true, ...(name ? { userName: name } : {}) });
+    const idx = newPortfolioIndex ?? portfolioIndex;
+    const totalInvested = holdings.reduce((s, h) => s + h.balance, 0) || 8550;
+
+    if (customTickers && customTickers.length > 0 && customTickers.reduce((s, t) => s + t.allocation, 0) === 100) {
+      const newHoldings: InvestmentHolding[] = customTickers.map((t, i) => ({
+        id: `custom-${i}`,
+        name: t.name,
+        ticker: t.ticker,
+        allocation: t.allocation,
+        balance: Math.round(totalInvested * (t.allocation / 100) * 100) / 100,
+        returnPercent: 8 + Math.random() * 12,
+        color: HOLDING_COLORS[i % HOLDING_COLORS.length],
+      }));
+      setHoldings(newHoldings);
+      setPortfolioIndex(2);
+    } else if (typeof newPortfolioIndex === "number" && newPortfolioIndex >= 0 && newPortfolioIndex <= 4) {
+      setPortfolioIndex(newPortfolioIndex);
+      const preset = PORTFOLIO_PRESETS[newPortfolioIndex];
+      if (totalInvested > 0) {
+        setHoldings((prev) =>
+          prev.map((h) => {
+            const alloc = h.id === "1" ? preset.stocks : h.id === "2" ? preset.bonds : preset.cash;
+            const newBalance = Math.round(totalInvested * (alloc / 100) * 100) / 100;
+            return { ...h, allocation: alloc, balance: newBalance };
+          })
+        );
+      }
+    }
+
+    saveData({
+      hasCompletedOnboarding: true,
+      ...(name ? { userName: name } : {}),
+      portfolioIndex: typeof newPortfolioIndex === "number" ? newPortfolioIndex : idx,
+    });
   };
 
   const logout = async () => {
@@ -456,6 +560,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     setTransactions(defaultTransactions);
     setReceipts(defaultReceipts);
     setHoldings(defaultHoldings);
+    setPortfolioIndex(2);
     setAutoInvestEnabled(true);
     setFirstDollarEnabled(true);
     setRoundUpEnabled(false);
@@ -501,6 +606,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       hasCompletedOnboarding,
       isLoading,
       userName,
+      portfolioIndex,
       totalUnreimbursed,
       linkedCards,
       linkedBankAccounts,
@@ -518,13 +624,15 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       toggleRoundUp,
       completeOnboarding,
       buyHolding,
+      buyNewTicker,
       sellHolding,
       buyProportional,
       sellProportional,
       updatePortfolioMix,
+      applyPortfolioPreset,
       logout,
     }),
-    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, totalUnreimbursed, linkedCards, linkedBankAccounts]
+    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, portfolioIndex, totalUnreimbursed, linkedCards, linkedBankAccounts]
   );
 
   return <HSAContext.Provider value={value}>{children}</HSAContext.Provider>;

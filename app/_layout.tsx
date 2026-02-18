@@ -24,6 +24,7 @@ function RootLayoutNav() {
       <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: "fullScreenModal" }} />
       <Stack.Screen name="nearby-services" options={{ headerShown: false, presentation: "modal" }} />
       <Stack.Screen name="documents" options={{ headerShown: false }} />
+      <Stack.Screen name="trade" options={{ headerShown: false }} />
     </Stack>
   );
 }

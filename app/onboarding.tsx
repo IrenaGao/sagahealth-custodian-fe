@@ -43,6 +43,26 @@ const portfolios = [
   { label: "Aggressive", stocks: 90, bonds: 8, cash: 2 },
 ];
 
+const AVAILABLE_TICKERS = [
+  { ticker: "VOO", name: "Vanguard S&P 500 ETF", type: "etf" },
+  { ticker: "VTI", name: "Vanguard Total Stock Market", type: "etf" },
+  { ticker: "SPY", name: "SPDR S&P 500 ETF Trust", type: "etf" },
+  { ticker: "QQQ", name: "Invesco QQQ Trust", type: "etf" },
+  { ticker: "SCHD", name: "Schwab US Dividend Equity", type: "etf" },
+  { ticker: "VXUS", name: "Vanguard Total International", type: "etf" },
+  { ticker: "BND", name: "Vanguard Total Bond Market", type: "etf" },
+  { ticker: "AAPL", name: "Apple Inc.", type: "stock" },
+  { ticker: "MSFT", name: "Microsoft Corporation", type: "stock" },
+  { ticker: "GOOGL", name: "Alphabet Inc. (Google)", type: "stock" },
+  { ticker: "AMZN", name: "Amazon.com Inc.", type: "stock" },
+  { ticker: "NVDA", name: "NVIDIA Corporation", type: "stock" },
+  { ticker: "META", name: "Meta Platforms Inc.", type: "stock" },
+  { ticker: "TSLA", name: "Tesla Inc.", type: "stock" },
+  { ticker: "JPM", name: "JPMorgan Chase & Co.", type: "stock" },
+  { ticker: "JNJ", name: "Johnson & Johnson", type: "stock" },
+];
+
+
 function formatDob(text: string): string {
   const digits = text.replace(/\D/g, "").slice(0, 8);
   if (digits.length <= 2) return digits;
@@ -106,6 +126,9 @@ export default function OnboardingScreen() {
   const [q5, setQ5] = useState<number | null>(null);
 
   const [portfolioIndex, setPortfolioIndex] = useState(2);
+  const [useCustomTickers, setUseCustomTickers] = useState(false);
+  const [customTickerSelections, setCustomTickerSelections] = useState<{ ticker: string; name: string; allocation: number }[]>([]);
+  const [tickerSearch, setTickerSearch] = useState("");
 
   const [autoInvest, setAutoInvest] = useState(true);
   const [investPercent, setInvestPercent] = useState(100);
@@ -137,7 +160,11 @@ export default function OnboardingScreen() {
         setInvestmentConfirmed(true);
         return;
       }
-      completeOnboarding(firstName.trim());
+      completeOnboarding(
+        firstName.trim(),
+        useCustomTickers && customTickerTotal === 100 ? undefined : portfolioIndex,
+        useCustomTickers && customTickerTotal === 100 ? customTickerSelections : undefined
+      );
       if (autoInvest) toggleAutoInvest();
       router.replace("/(tabs)");
       return;
@@ -176,6 +203,9 @@ export default function OnboardingScreen() {
       case 8:
         return q1 !== null && q2 !== null && q3 !== null && q4 !== null && q5 !== null;
       case 9:
+        if (useCustomTickers) {
+          return customTickerSelections.length > 0 && customTickerTotal === 100;
+        }
         return true;
       case 10:
         return true;
@@ -219,6 +249,8 @@ export default function OnboardingScreen() {
     b.name.toLowerCase().includes(bankSearch.toLowerCase())
   );
 
+  const customTickerTotal = customTickerSelections.reduce((sum, s) => sum + s.allocation, 0);
+
   const getDotSize = (index: number, active: boolean) => {
     const isBig = index === 0 || index === 2 || index === 4;
     if (active) {
@@ -261,7 +293,7 @@ export default function OnboardingScreen() {
 
       case 1:
         return (
-          <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
+          <View style={styles.stepContent}>
             <Text style={styles.stepTitle}>Contact & Address</Text>
             <Text style={styles.stepSubtitle}>Where should we send your Saga debit card?</Text>
             <View style={styles.formGroup}>
@@ -273,8 +305,15 @@ export default function OnboardingScreen() {
               <TextInput style={styles.input} value={phone} onChangeText={(t) => setPhone(formatPhone(t))} placeholder="(555) 555-5555" placeholderTextColor={Colors.light.textMuted} keyboardType="phone-pad" maxLength={14} autoComplete="off" />
             </View>
             <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Street Address</Text>
-              <TextInput style={styles.input} value={street} onChangeText={(t) => setStreet(t)} placeholder="123 Main St" placeholderTextColor={Colors.light.textMuted} autoComplete="off" autoCorrect={false} spellCheck={false} />
+              <Text style={styles.inputLabel}>Street Name</Text>
+              <TextInput
+                style={styles.input}
+                value={street}
+                onChangeText={setStreet}
+                keyboardType="default"
+              />
+
+
             </View>
             <View style={styles.rowFields}>
               <View style={[styles.formGroup, { flex: 1 }]}>
@@ -290,7 +329,7 @@ export default function OnboardingScreen() {
                 <TextInput style={styles.input} value={zip} onChangeText={(t) => setZip(t)} placeholder="90210" placeholderTextColor={Colors.light.textMuted} keyboardType="number-pad" maxLength={5} autoComplete="off" />
               </View>
             </View>
-          </Animated.View>
+          </View>
         );
 
       case 2:
@@ -389,8 +428,8 @@ export default function OnboardingScreen() {
         return (
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
             <Ionicons name="checkmark-circle" size={80} color={Colors.light.success} />
-            <Text style={styles.successTitle}>Your HSA is ready!</Text>
-            <Text style={styles.successSubtitle}>Your Saga Health Savings Account has been approved.</Text>
+            <Text style={styles.successTitle}>We're setting up your account.</Text>
+            <Text style={styles.successSubtitle}>Let's first connect your bank account.</Text>
           </Animated.View>
         );
 
@@ -707,6 +746,107 @@ export default function OnboardingScreen() {
                 {portfolios[portfolioIndex].stocks}% Stocks, {portfolios[portfolioIndex].bonds}% Bonds, {portfolios[portfolioIndex].cash}% Cash
               </Text>
             </View>
+
+            <View style={styles.customTickerSection}>
+              <Pressable
+                style={[styles.customTickerToggle, useCustomTickers && styles.customTickerToggleActive]}
+                onPress={() => {
+                  setUseCustomTickers(!useCustomTickers);
+                  if (!useCustomTickers) setCustomTickerSelections([]);
+                  if (Platform.OS !== "web") Haptics.selectionAsync();
+                }}
+              >
+                <Feather name="layers" size={18} color={useCustomTickers ? Colors.light.white : Colors.light.tint} />
+                <Text style={[styles.customTickerToggleText, useCustomTickers && styles.customTickerToggleTextActive]}>
+                  Or choose individual tickers
+                </Text>
+              </Pressable>
+
+              {useCustomTickers && (
+                <>
+                  <TextInput
+                    style={styles.tickerSearchInput}
+                    value={tickerSearch}
+                    onChangeText={setTickerSearch}
+                    placeholder="Search tickers (e.g. VOO, AAPL)"
+                    placeholderTextColor={Colors.light.textMuted}
+                    autoCapitalize="characters"
+                  />
+                  <ScrollView style={styles.tickerListScroll} nestedScrollEnabled showsVerticalScrollIndicator={false}>
+                    {AVAILABLE_TICKERS.filter(
+                      (t) =>
+                        t.ticker.toLowerCase().includes(tickerSearch.toLowerCase()) ||
+                        t.name.toLowerCase().includes(tickerSearch.toLowerCase())
+                    ).map((t) => {
+                      const selected = customTickerSelections.find((s) => s.ticker === t.ticker);
+                      return (
+                        <Pressable
+                          key={t.ticker}
+                          style={[styles.tickerListItem, selected && styles.tickerListItemSelected]}
+                          onPress={() => {
+                            if (Platform.OS !== "web") Haptics.selectionAsync();
+                            if (selected) {
+                              setCustomTickerSelections((prev) => prev.filter((p) => p.ticker !== t.ticker));
+                            } else {
+                              setCustomTickerSelections((prev) => [...prev, { ticker: t.ticker, name: t.name, allocation: 0 }]);
+                            }
+                          }}
+                        >
+                          <View style={styles.tickerListLeft}>
+                            <Text style={styles.tickerListTicker}>{t.ticker}</Text>
+                            <View style={[styles.tickerTypeBadge, { backgroundColor: t.type === "etf" ? Colors.light.tintLight : Colors.light.accent + "30" }]}>
+                              <Text style={[styles.tickerTypeText, { color: t.type === "etf" ? Colors.light.tint : Colors.light.accent }]}>{t.type.toUpperCase()}</Text>
+                            </View>
+                            <Text style={styles.tickerListName} numberOfLines={1}>{t.name}</Text>
+                          </View>
+                          {selected && <Ionicons name="checkmark-circle" size={22} color={Colors.light.tint} />}
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+
+                  {customTickerSelections.length > 0 && (
+                    <View style={styles.selectedTickersSection}>
+                      <Text style={styles.selectedTickersTitle}>Your allocation (must total 100%)</Text>
+                      {customTickerSelections.map((s, i) => (
+                        <View key={s.ticker} style={styles.selectedTickerRow}>
+                          <Text style={styles.selectedTickerLabel}>{s.ticker}</Text>
+                          <View style={styles.allocationInputRow}>
+                            <TextInput
+                              style={styles.allocationInput}
+                              value={s.allocation ? String(s.allocation) : ""}
+                              onChangeText={(txt) => {
+                                const num = parseInt(txt.replace(/\D/g, ""), 10) || 0;
+                                setCustomTickerSelections((prev) =>
+                                  prev.map((p, idx) => (idx === i ? { ...p, allocation: Math.min(100, num) } : p))
+                                );
+                              }}
+                              placeholder="0"
+                              placeholderTextColor={Colors.light.textMuted}
+                              keyboardType="number-pad"
+                              maxLength={3}
+                            />
+                            <Text style={styles.allocationPercent}>%</Text>
+                          </View>
+                          <Pressable
+                            onPress={() => setCustomTickerSelections((prev) => prev.filter((p) => p.ticker !== s.ticker))}
+                            hitSlop={8}
+                          >
+                            <Ionicons name="close-circle" size={22} color={Colors.light.textMuted} />
+                          </Pressable>
+                        </View>
+                      ))}
+                      <View style={styles.allocationTotalRow}>
+                        <Text style={styles.allocationTotalLabel}>Total</Text>
+                        <Text style={[styles.allocationTotalValue, (customTickerTotal === 100 ? styles.allocationTotalValid : styles.allocationTotalInvalid)]}>
+                          {customTickerTotal}%
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+                </>
+              )}
+            </View>
           </Animated.View>
         );
 
@@ -716,7 +856,9 @@ export default function OnboardingScreen() {
             <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
               <Ionicons name="checkmark-circle" size={80} color={Colors.light.success} />
               <Text style={styles.successTitle}>Investment in Progress</Text>
-              <Text style={styles.successSubtitle}>Your portfolio is being set up with the {portfolios[portfolioIndex].label} strategy.</Text>
+              <Text style={styles.successSubtitle}>
+                Your portfolio is being set up{useCustomTickers ? ` with your selected holdings` : ` with the ${portfolios[portfolioIndex].label} strategy`}.
+              </Text>
             </Animated.View>
           );
         }
@@ -782,6 +924,7 @@ export default function OnboardingScreen() {
 
       <KeyboardAwareScrollViewCompat
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + bottomPad + 24 }]}
         bottomOffset={80}
       >
@@ -1324,6 +1467,161 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.light.textSecondary,
     textAlign: "center",
+  },
+  customTickerSection: {
+    marginTop: 24,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+  },
+  customTickerToggle: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: Colors.light.card,
+    borderWidth: 2,
+    borderColor: Colors.light.border,
+  },
+  customTickerToggleActive: {
+    backgroundColor: Colors.light.tint,
+    borderColor: Colors.light.tint,
+  },
+  customTickerToggleText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.tint,
+  },
+  customTickerToggleTextActive: {
+    color: Colors.light.white,
+  },
+  tickerSearchInput: {
+    backgroundColor: Colors.light.card,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 12,
+    padding: 14,
+    fontFamily: "DMSans_400Regular",
+    fontSize: 15,
+    color: Colors.light.text,
+    marginTop: 16,
+  },
+  tickerListScroll: {
+    maxHeight: 200,
+    marginTop: 12,
+  },
+  tickerListItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    backgroundColor: Colors.light.card,
+    borderWidth: 2,
+    borderColor: "transparent",
+    marginBottom: 8,
+  },
+  tickerListItemSelected: {
+    borderColor: Colors.light.tint,
+    backgroundColor: Colors.light.tintLight,
+  },
+  tickerListLeft: {
+    flex: 1,
+  },
+  tickerListTicker: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  tickerTypeBadge: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  tickerTypeText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 10,
+  },
+  tickerListName: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    color: Colors.light.textSecondary,
+    marginTop: 2,
+  },
+  selectedTickersSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+  },
+  selectedTickersTitle: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+    color: Colors.light.text,
+    marginBottom: 12,
+  },
+  selectedTickerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 10,
+  },
+  selectedTickerLabel: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.text,
+    width: 48,
+  },
+  allocationInputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    backgroundColor: Colors.light.card,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    paddingHorizontal: 12,
+  },
+  allocationInput: {
+    flex: 1,
+    paddingVertical: 10,
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  allocationPercent: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 16,
+    color: Colors.light.textMuted,
+  },
+  allocationTotalRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: Colors.light.border,
+  },
+  allocationTotalLabel: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.text,
+  },
+  allocationTotalValue: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 18,
+  },
+  allocationTotalValid: {
+    color: Colors.light.success,
+  },
+  allocationTotalInvalid: {
+    color: Colors.light.danger,
   },
   toggleCard: {
     flexDirection: "row",

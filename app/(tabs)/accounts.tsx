@@ -2873,6 +2873,7 @@ export default function AccountsScreen() {
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 : 100 }]}
         contentInsetAdjustmentBehavior="automatic"
       >

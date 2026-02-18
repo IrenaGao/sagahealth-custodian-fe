@@ -154,6 +154,7 @@ export default function DocumentsScreen() {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[s.scrollContent, { paddingBottom: insets.bottom + 30 }]}
       >
         <View style={s.countRow}>

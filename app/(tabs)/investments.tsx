@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useRef } from "react";
+import React, { useState, useMemo } from "react";
 import {
   StyleSheet,
   Text,
@@ -9,18 +9,87 @@ import {
   Switch,
   Dimensions,
   Modal,
-  TextInput,
-  Alert,
-  KeyboardAvoidingView,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop, Circle, Line, Text as SvgText } from "react-native-svg";
 import Colors from "@/constants/colors";
-import { useHSA, InvestmentHolding } from "@/contexts/HSAContext";
+import { useHSA, type InvestmentHolding, PORTFOLIO_PRESETS } from "@/contexts/HSAContext";
+
+const ASSET_DETAILS: Record<string, { description: string; type: string; expenseRatio?: string; sector?: string }> = {
+  Conservative: { description: "A conservative mix focused on stability with higher bond and cash allocation. Lower volatility, steady income.", type: "Portfolio" },
+  "Moderately Conservative": { description: "Balanced toward stability with modest equity exposure. Suitable for those approaching or in retirement.", type: "Portfolio" },
+  Moderate: { description: "A balanced mix of stocks, bonds, and cash. Designed for medium-term growth with moderate risk.", type: "Portfolio" },
+  "Moderately Aggressive": { description: "Growth-oriented with a higher stock allocation. Suitable for investors with a longer time horizon.", type: "Portfolio" },
+  Aggressive: { description: "Maximum growth focus with heavy stock allocation. Higher potential returns with higher volatility.", type: "Portfolio" },
+  Stocks: {
+    description: "Broad exposure to U.S. equities through a diversified basket of large-cap stocks. Designed for long-term growth potential.",
+    type: "Asset Class",
+  },
+  Bonds: {
+    description: "Fixed-income exposure to U.S. investment-grade bonds. Provides income and helps reduce portfolio volatility.",
+    type: "Asset Class",
+  },
+  Cash: {
+    description: "Cash-equivalent holdings earning money market rates. Provides liquidity and stability.",
+    type: "Asset Class",
+  },
+  VOO: {
+    description: "Seeks to track the S&P 500 index, providing exposure to 500 of the largest U.S. companies across all sectors.",
+    type: "ETF",
+    expenseRatio: "0.03%",
+    sector: "Large Cap Blend",
+  },
+  VTI: {
+    description: "Tracks the CRSP US Total Market Index, covering nearly the entire U.S. equity market from large to small cap.",
+    type: "ETF",
+    expenseRatio: "0.03%",
+    sector: "Total Market",
+  },
+  SPY: {
+    description: "Tracks the S&P 500 index. One of the most liquid ETFs, ideal for active trading and core long-term holdings.",
+    type: "ETF",
+    expenseRatio: "0.0945%",
+    sector: "Large Cap Blend",
+  },
+  QQQ: {
+    description: "Tracks the Nasdaq-100, focused on top non-financial companies on Nasdaq. Heavy tech weighting.",
+    type: "ETF",
+    expenseRatio: "0.20%",
+    sector: "Large Cap Growth",
+  },
+  SCHD: {
+    description: "Focuses on high-quality U.S. dividend payers with 10+ years of dividend growth. Income-oriented.",
+    type: "ETF",
+    expenseRatio: "0.06%",
+    sector: "Dividend",
+  },
+  VXUS: {
+    description: "Total international stock exposure, excluding U.S. equities. Covers developed and emerging markets.",
+    type: "ETF",
+    expenseRatio: "0.07%",
+    sector: "International",
+  },
+  BND: {
+    description: "Total U.S. bond market exposure including government, corporate, and mortgage-backed securities.",
+    type: "ETF",
+    expenseRatio: "0.03%",
+    sector: "Total Bond",
+  },
+  AAPL: { description: "Apple Inc. designs and manufactures consumer electronics, software, and services. Iconic brand with strong ecosystem.", type: "Stock", sector: "Technology" },
+  MSFT: { description: "Microsoft Corporation — cloud, software, and hardware. Leader in enterprise software and Azure cloud.", type: "Stock", sector: "Technology" },
+  GOOGL: { description: "Alphabet Inc. (Google) — search, advertising, cloud, and consumer tech including Android and YouTube.", type: "Stock", sector: "Technology" },
+  AMZN: { description: "Amazon.com — e-commerce, cloud computing (AWS), and digital streaming.", type: "Stock", sector: "Consumer Cyclical" },
+  NVDA: { description: "NVIDIA Corporation — graphics processors and AI/data center chips. Leader in GPU and AI computing.", type: "Stock", sector: "Technology" },
+  META: { description: "Meta Platforms — social networks (Facebook, Instagram, WhatsApp) and virtual reality.", type: "Stock", sector: "Technology" },
+  TSLA: { description: "Tesla Inc. — electric vehicles, energy storage, and solar products.", type: "Stock", sector: "Consumer Cyclical" },
+  JPM: { description: "JPMorgan Chase — major U.S. bank with investment banking, commercial banking, and asset management.", type: "Stock", sector: "Financials" },
+  JNJ: { description: "Johnson & Johnson — healthcare conglomerate: pharmaceuticals, medical devices, consumer health.", type: "Stock", sector: "Healthcare" },
+};
 
 const CHART_WIDTH = Dimensions.get("window").width - 80;
 const CHART_HEIGHT = 180;
@@ -348,21 +417,229 @@ const pieStyles = StyleSheet.create({
   },
 });
 
+function HoldingDetailModal({
+  holding,
+  visible,
+  onClose,
+  onTrade,
+}: {
+  holding: InvestmentHolding | null;
+  visible: boolean;
+  onClose: () => void;
+  onTrade: () => void;
+}) {
+  if (!holding) return null;
+  const details = ASSET_DETAILS[holding.ticker];
+  const isPositive = holding.returnPercent > 0;
+  return (
+    <Modal visible={visible} animationType="slide" transparent>
+      <Pressable style={detailModalStyles.backdrop} onPress={onClose}>
+        <Pressable style={detailModalStyles.sheet} onPress={(e) => e.stopPropagation()}>
+          <View style={detailModalStyles.handle} />
+          <View style={detailModalStyles.header}>
+            <View style={[detailModalStyles.dot, { backgroundColor: holding.color }]} />
+            <View style={detailModalStyles.headerInfo}>
+              <Text style={detailModalStyles.ticker}>{holding.ticker}</Text>
+              <Text style={detailModalStyles.name}>{holding.name}</Text>
+            </View>
+          </View>
+          <View style={detailModalStyles.statsRow}>
+            <View style={detailModalStyles.stat}>
+              <Text style={detailModalStyles.statLabel}>Balance</Text>
+              <Text style={detailModalStyles.statValue}>${holding.balance.toLocaleString()}</Text>
+            </View>
+            <View style={detailModalStyles.stat}>
+              <Text style={detailModalStyles.statLabel}>Allocation</Text>
+              <Text style={detailModalStyles.statValue}>{holding.allocation}%</Text>
+            </View>
+            <View style={detailModalStyles.stat}>
+              <Text style={detailModalStyles.statLabel}>Return</Text>
+              <Text style={[detailModalStyles.statValue, { color: isPositive ? Colors.light.success : Colors.light.danger }]}>
+                {isPositive ? "+" : ""}{holding.returnPercent}%
+              </Text>
+            </View>
+          </View>
+          {details && (
+            <View style={detailModalStyles.detailsSection}>
+              <View style={detailModalStyles.detailRow}>
+                <Text style={detailModalStyles.detailLabel}>Type</Text>
+                <Text style={detailModalStyles.detailValue}>{details.type}</Text>
+              </View>
+              {details.expenseRatio && (
+                <View style={detailModalStyles.detailRow}>
+                  <Text style={detailModalStyles.detailLabel}>Expense Ratio</Text>
+                  <Text style={detailModalStyles.detailValue}>{details.expenseRatio}</Text>
+                </View>
+              )}
+              {details.sector && (
+                <View style={detailModalStyles.detailRow}>
+                  <Text style={detailModalStyles.detailLabel}>Sector</Text>
+                  <Text style={detailModalStyles.detailValue}>{details.sector}</Text>
+                </View>
+              )}
+              <Text style={detailModalStyles.description}>{details.description}</Text>
+            </View>
+          )}
+          {!details && (
+            <Text style={[detailModalStyles.description, { marginTop: 0 }]}>
+              Your position in {holding.name}. Tap Trade to buy or sell.
+            </Text>
+          )}
+          <View style={detailModalStyles.actions}>
+            <Pressable style={detailModalStyles.closeBtn} onPress={onClose}>
+              <Text style={detailModalStyles.closeBtnText}>Close</Text>
+            </Pressable>
+            <Pressable style={detailModalStyles.tradeBtn} onPress={onTrade}>
+              <Feather name="repeat" size={18} color={Colors.light.white} />
+              <Text style={detailModalStyles.tradeBtnText}>Trade</Text>
+            </Pressable>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+const detailModalStyles = StyleSheet.create({
+  backdrop: {
+    flex: 1,
+    justifyContent: "flex-end",
+    backgroundColor: "rgba(0,0,0,0.45)",
+  },
+  sheet: {
+    backgroundColor: Colors.light.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 24,
+    paddingBottom: Platform.OS === "ios" ? 34 : 24,
+  },
+  handle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: Colors.light.borderLight,
+    alignSelf: "center",
+    marginTop: 12,
+    marginBottom: 20,
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+    marginBottom: 20,
+  },
+  dot: {
+    width: 14,
+    height: 14,
+    borderRadius: 7,
+  },
+  headerInfo: { flex: 1 },
+  ticker: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 22,
+    color: Colors.light.text,
+  },
+  name: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 14,
+    color: Colors.light.textMuted,
+  },
+  statsRow: {
+    flexDirection: "row",
+    backgroundColor: Colors.light.borderLight,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 20,
+  },
+  stat: { flex: 1, alignItems: "center" },
+  statLabel: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 12,
+    color: Colors.light.textMuted,
+    marginBottom: 4,
+  },
+  statValue: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 18,
+    color: Colors.light.text,
+  },
+  detailsSection: {
+    marginBottom: 24,
+  },
+  detailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  detailLabel: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 14,
+    color: Colors.light.textMuted,
+  },
+  detailValue: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+    color: Colors.light.text,
+  },
+  description: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 14,
+    color: Colors.light.textSecondary,
+    lineHeight: 22,
+    marginTop: 16,
+  },
+  actions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  closeBtn: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: Colors.light.borderLight,
+    alignItems: "center",
+  },
+  closeBtnText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  tradeBtn: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: Colors.light.tint,
+  },
+  tradeBtnText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 16,
+    color: Colors.light.white,
+  },
+});
+
 function HoldingCard({
   holding,
+  onPress,
 }: {
-  holding: {
-    name: string;
-    ticker: string;
-    allocation: number;
-    balance: number;
-    returnPercent: number;
-    color: string;
-  };
+  holding: InvestmentHolding;
+  onPress?: () => void;
 }) {
   const isPositive = holding.returnPercent > 0;
   return (
-    <View style={holdStyles.card}>
+    <Pressable
+      style={holdStyles.card}
+      onPress={() => {
+        if (onPress) {
+          onPress();
+          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        }
+      }}
+    >
       <View style={holdStyles.left}>
         <View style={[holdStyles.dot, { backgroundColor: holding.color }]} />
         <View style={holdStyles.info}>
@@ -388,7 +665,7 @@ function HoldingCard({
           </Text>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -517,639 +794,103 @@ const toggleStyles = StyleSheet.create({
   },
 });
 
-type TradeMode = "buy" | "sell" | "mix";
-
-function MixSliderItem({ holding, value, onChange }: { holding: InvestmentHolding; value: number; onChange: (v: number) => void }) {
-  return (
-    <View style={tradeStyles.mixItem}>
-      <View style={tradeStyles.mixItemHeader}>
-        <View style={[tradeStyles.holdingDot, { backgroundColor: holding.color }]} />
-        <Text style={tradeStyles.mixItemTicker}>{holding.ticker}</Text>
-        <Text style={tradeStyles.mixItemPct}>{value}%</Text>
-      </View>
-      <View style={tradeStyles.mixSliderTrack}>
-        <View style={[tradeStyles.mixSliderFill, { width: `${value}%`, backgroundColor: holding.color }]} />
-      </View>
-      <View style={tradeStyles.mixBtnRow}>
-        <Pressable style={tradeStyles.mixAdjustBtn} onPress={() => { if (value > 0) onChange(value - 5); }}>
-          <Feather name="minus" size={16} color={Colors.light.textSecondary} />
-        </Pressable>
-        <Pressable style={tradeStyles.mixAdjustBtn} onPress={() => { if (value < 100) onChange(value + 5); }}>
-          <Feather name="plus" size={16} color={Colors.light.textSecondary} />
-        </Pressable>
-      </View>
-    </View>
-  );
-}
-
-function TradeModal({
-  visible,
-  onClose,
-  holdings,
-  cashBalance,
-  investedBalance,
-  onBuyProportional,
-  onSellProportional,
-  onChangeMix,
-}: {
-  visible: boolean;
-  onClose: () => void;
-  holdings: InvestmentHolding[];
-  cashBalance: number;
-  investedBalance: number;
-  onBuyProportional: (amount: number) => boolean;
-  onSellProportional: (amount: number) => boolean;
-  onChangeMix: (allocations: { id: string; allocation: number }[]) => void;
-}) {
-  const [tradeMode, setTradeMode] = useState<TradeMode>("buy");
-  const [amountText, setAmountText] = useState("");
-  const [step, setStep] = useState<"form" | "confirm" | "success">("form");
-  const [mixAllocations, setMixAllocations] = useState<Record<string, number>>(() => {
-    const obj: Record<string, number> = {};
-    holdings.forEach((h) => { obj[h.id] = h.allocation; });
-    return obj;
-  });
-  const amountInputRef = useRef<TextInput>(null);
-
-  const amount = parseFloat(amountText) || 0;
-  const maxAmount = tradeMode === "buy" ? cashBalance : investedBalance;
-  const isValid = tradeMode === "mix" ? Object.values(mixAllocations).reduce((s, v) => s + v, 0) === 100 : (amount > 0 && amount <= maxAmount);
-  const mixTotal = Object.values(mixAllocations).reduce((s, v) => s + v, 0);
-
-  const resetAndClose = () => {
-    onClose();
-    setTimeout(() => {
-      setAmountText("");
-      setStep("form");
-      setTradeMode("buy");
-      const obj: Record<string, number> = {};
-      holdings.forEach((h) => { obj[h.id] = h.allocation; });
-      setMixAllocations(obj);
-    }, 300);
-  };
-
-  const handleConfirm = () => {
-    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    if (tradeMode === "mix") {
-      onChangeMix(Object.entries(mixAllocations).map(([id, allocation]) => ({ id, allocation })));
-      setStep("success");
-    } else {
-      const success = tradeMode === "buy" ? onBuyProportional(amount) : onSellProportional(amount);
-      if (success) {
-        setStep("success");
-      } else {
-        Alert.alert("Trade Failed", "Unable to complete the trade. Please check your balance and try again.");
-      }
-    }
-  };
-
-  const handleQuickAmount = (pct: number) => {
-    const val = Math.floor(maxAmount * pct * 100) / 100;
-    setAmountText(val.toFixed(2));
-    if (Platform.OS !== "web") Haptics.selectionAsync();
-  };
-
-  const handleMixChange = (holdingId: string, newValue: number) => {
-    setMixAllocations((prev) => ({ ...prev, [holdingId]: Math.max(0, Math.min(100, newValue)) }));
-    if (Platform.OS !== "web") Haptics.selectionAsync();
-  };
-
-  return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <KeyboardAvoidingView style={tradeStyles.overlay} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <Pressable style={tradeStyles.backdrop} onPress={resetAndClose} />
-        <View style={tradeStyles.sheet}>
-          <View style={tradeStyles.handle} />
-
-          {step === "success" ? (
-            <View style={tradeStyles.successContainer}>
-              <View style={tradeStyles.successIcon}>
-                <Ionicons name="checkmark" size={32} color={Colors.light.white} />
-              </View>
-              <Text style={tradeStyles.successTitle}>
-                {tradeMode === "mix" ? "Mix Updated" : "Trade Complete"}
-              </Text>
-              <Text style={tradeStyles.successDesc}>
-                {tradeMode === "mix"
-                  ? "Your portfolio allocation has been updated"
-                  : `${tradeMode === "buy" ? "Invested" : "Sold"} $${amount.toFixed(2)} across your portfolio`}
-              </Text>
-              <Pressable style={tradeStyles.doneBtn} onPress={resetAndClose}>
-                <Text style={tradeStyles.doneBtnText}>Done</Text>
-              </Pressable>
-            </View>
-          ) : step === "confirm" ? (
-            <View style={tradeStyles.confirmContainer}>
-              <Text style={tradeStyles.sheetTitle}>
-                {tradeMode === "mix" ? "Confirm New Mix" : "Confirm Trade"}
-              </Text>
-              <View style={tradeStyles.confirmCard}>
-                {tradeMode === "mix" ? (
-                  <>
-                    {holdings.map((h, i) => (
-                      <View key={h.id}>
-                        <View style={tradeStyles.confirmRow}>
-                          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                            <View style={[tradeStyles.holdingDot, { backgroundColor: h.color }]} />
-                            <Text style={tradeStyles.confirmLabel}>{h.ticker}</Text>
-                          </View>
-                          <Text style={tradeStyles.confirmValue}>
-                            {h.allocation}% → {mixAllocations[h.id]}%
-                          </Text>
-                        </View>
-                        {i < holdings.length - 1 && <View style={tradeStyles.confirmDivider} />}
-                      </View>
-                    ))}
-                  </>
-                ) : (
-                  <>
-                    <View style={tradeStyles.confirmRow}>
-                      <Text style={tradeStyles.confirmLabel}>Type</Text>
-                      <View style={[tradeStyles.confirmBadge, { backgroundColor: tradeMode === "buy" ? Colors.light.successLight : Colors.light.dangerLight }]}>
-                        <Text style={[tradeStyles.confirmBadgeText, { color: tradeMode === "buy" ? Colors.light.success : Colors.light.danger }]}>
-                          {tradeMode === "buy" ? "Buy" : "Sell"}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={tradeStyles.confirmDivider} />
-                    <View style={tradeStyles.confirmRow}>
-                      <Text style={tradeStyles.confirmLabel}>Distribution</Text>
-                      <Text style={tradeStyles.confirmValue}>Proportional</Text>
-                    </View>
-                    <View style={tradeStyles.confirmDivider} />
-                    <View style={tradeStyles.confirmRow}>
-                      <Text style={tradeStyles.confirmLabel}>Amount</Text>
-                      <Text style={tradeStyles.confirmAmount}>${amount.toFixed(2)}</Text>
-                    </View>
-                  </>
-                )}
-              </View>
-              <View style={tradeStyles.confirmBtns}>
-                <Pressable style={tradeStyles.backBtn} onPress={() => setStep("form")}>
-                  <Feather name="arrow-left" size={20} color={Colors.light.text} />
-                </Pressable>
-                <Pressable
-                  style={[tradeStyles.executeBtn, { backgroundColor: tradeMode === "mix" ? Colors.light.accent : tradeMode === "buy" ? Colors.light.tint : Colors.light.danger }]}
-                  onPress={handleConfirm}
-                >
-                  <Text style={tradeStyles.executeBtnText}>
-                    {tradeMode === "mix" ? "Apply Changes" : tradeMode === "buy" ? "Confirm Buy" : "Confirm Sell"}
-                  </Text>
-                </Pressable>
-              </View>
-            </View>
-          ) : (
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={tradeStyles.sheetTitle}>Trade</Text>
-
-              <View style={tradeStyles.tabRow}>
-                {([
-                  { mode: "buy" as TradeMode, icon: "trending-up", label: "Buy", activeColor: Colors.light.success },
-                  { mode: "sell" as TradeMode, icon: "trending-down", label: "Sell", activeColor: Colors.light.danger },
-                  { mode: "mix" as TradeMode, icon: "sliders", label: "Change Mix", activeColor: Colors.light.accent },
-                ] as const).map((t) => (
-                  <Pressable
-                    key={t.mode}
-                    style={[tradeStyles.tab, tradeMode === t.mode && { backgroundColor: t.activeColor }]}
-                    onPress={() => {
-                      setTradeMode(t.mode);
-                      setAmountText("");
-                      if (t.mode === "mix") {
-                        const obj: Record<string, number> = {};
-                        holdings.forEach((h) => { obj[h.id] = h.allocation; });
-                        setMixAllocations(obj);
-                      }
-                      if (Platform.OS !== "web") Haptics.selectionAsync();
-                    }}
-                    testID={`trade-tab-${t.mode}`}
-                  >
-                    <Feather name={t.icon as any} size={16} color={tradeMode === t.mode ? Colors.light.white : t.activeColor} />
-                    <Text style={[tradeStyles.tabText, tradeMode === t.mode && tradeStyles.tabTextActive]}>{t.label}</Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              {tradeMode === "mix" ? (
-                <>
-                  <Text style={tradeStyles.fieldLabel}>Adjust Allocation</Text>
-                  {holdings.map((h) => (
-                    <MixSliderItem
-                      key={h.id}
-                      holding={h}
-                      value={mixAllocations[h.id] ?? h.allocation}
-                      onChange={(v) => handleMixChange(h.id, v)}
-                    />
-                  ))}
-                  <Text style={[tradeStyles.availableText, { textAlign: "center", marginTop: 8, color: mixTotal === 100 ? Colors.light.success : Colors.light.danger }]}>
-                    Total: {mixTotal}% {mixTotal !== 100 ? `(must equal 100%)` : ""}
-                  </Text>
-                  <Pressable
-                    style={[tradeStyles.reviewBtn, { backgroundColor: Colors.light.accent }, !isValid && tradeStyles.reviewBtnDisabled]}
-                    onPress={() => { if (isValid) setStep("confirm"); }}
-                    disabled={!isValid}
-                    testID="trade-review-btn"
-                  >
-                    <Text style={tradeStyles.reviewBtnText}>Review Changes</Text>
-                  </Pressable>
-                </>
-              ) : (
-                <>
-                  <Text style={tradeStyles.fieldLabel}>Amount</Text>
-                  <View style={tradeStyles.amountInputRow}>
-                    <Text style={tradeStyles.dollarSign}>$</Text>
-                    <TextInput
-                      ref={amountInputRef}
-                      style={tradeStyles.amountInput}
-                      value={amountText}
-                      onChangeText={(text) => setAmountText(text.replace(/[^0-9.]/g, ""))}
-                      placeholder="0.00"
-                      placeholderTextColor={Colors.light.textMuted}
-                      keyboardType="decimal-pad"
-                      testID="trade-amount-input"
-                    />
-                  </View>
-                  <Text style={tradeStyles.availableText}>
-                    {tradeMode === "buy"
-                      ? `Available cash: $${cashBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                      : `Portfolio balance: $${investedBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-                  </Text>
-
-                  <View style={tradeStyles.quickRow}>
-                    {[0.25, 0.5, 0.75].map((pct) => (
-                      <Pressable key={pct} style={tradeStyles.quickBtn} onPress={() => handleQuickAmount(pct)}>
-                        <Text style={tradeStyles.quickBtnText}>{`${pct * 100}%`}</Text>
-                      </Pressable>
-                    ))}
-                    <Pressable
-                      style={tradeStyles.quickBtn}
-                      onPress={() => {
-                        setAmountText("");
-                        amountInputRef.current?.focus();
-                        if (Platform.OS !== "web") Haptics.selectionAsync();
-                      }}
-                    >
-                      <Text style={tradeStyles.quickBtnText}>Custom</Text>
-                    </Pressable>
-                  </View>
-
-                  <Pressable
-                    style={[
-                      tradeStyles.reviewBtn,
-                      { backgroundColor: tradeMode === "buy" ? Colors.light.tint : Colors.light.danger },
-                      !isValid && tradeStyles.reviewBtnDisabled,
-                    ]}
-                    onPress={() => { if (isValid) setStep("confirm"); }}
-                    disabled={!isValid}
-                    testID="trade-review-btn"
-                  >
-                    <Text style={tradeStyles.reviewBtnText}>
-                      Review {tradeMode === "buy" ? "Buy" : "Sell"} Order
-                    </Text>
-                  </Pressable>
-                </>
-              )}
-            </ScrollView>
-          )}
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
-  );
-}
-
-const tradeStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    justifyContent: "flex-end",
-  },
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.45)",
-  },
-  sheet: {
-    backgroundColor: Colors.light.card,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    paddingHorizontal: 24,
-    paddingBottom: Platform.OS === "web" ? 34 : 40,
-    paddingTop: 12,
-    maxHeight: "85%",
-  },
-  handle: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: Colors.light.borderLight,
-    alignSelf: "center",
-    marginBottom: 16,
-  },
-  sheetTitle: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 22,
-    color: Colors.light.text,
-    marginBottom: 20,
-  },
-  tabRow: {
-    flexDirection: "row",
-    backgroundColor: Colors.light.borderLight,
-    borderRadius: 14,
-    padding: 4,
-    marginBottom: 24,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    paddingVertical: 12,
-    borderRadius: 11,
-  },
-  tabActiveBuy: {
-    backgroundColor: Colors.light.success,
-  },
-  tabActiveSell: {
-    backgroundColor: Colors.light.danger,
-  },
-  tabText: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 15,
-    color: Colors.light.textMuted,
-  },
-  tabTextActive: {
-    color: Colors.light.white,
-  },
-  fieldLabel: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 13,
-    color: Colors.light.textSecondary,
-    marginBottom: 10,
-    textTransform: "uppercase" as const,
-    letterSpacing: 0.5,
-  },
-  holdingPicker: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 24,
-  },
-  holdingChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
-    backgroundColor: Colors.light.borderLight,
-    borderWidth: 2,
-    borderColor: "transparent",
-  },
-  holdingChipActive: {
-    borderColor: Colors.light.tint,
-    backgroundColor: Colors.light.tintLight,
-  },
-  holdingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  holdingChipText: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 14,
-    color: Colors.light.textMuted,
-  },
-  holdingChipTextActive: {
-    color: Colors.light.tint,
-  },
-  amountInputRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: Colors.light.borderLight,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    marginBottom: 8,
-  },
-  dollarSign: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 28,
-    color: Colors.light.text,
-    marginRight: 4,
-  },
-  amountInput: {
-    flex: 1,
-    fontFamily: "DMSans_700Bold",
-    fontSize: 28,
-    color: Colors.light.text,
-    paddingVertical: 12,
-  },
-  availableText: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 13,
-    color: Colors.light.textMuted,
-    marginBottom: 16,
-  },
-  quickRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 24,
-  },
-  quickBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: Colors.light.borderLight,
-    alignItems: "center",
-  },
-  quickBtnText: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 13,
-    color: Colors.light.textSecondary,
-  },
-  reviewBtn: {
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: "center",
-  },
-  reviewBtnDisabled: {
-    opacity: 0.4,
-  },
-  reviewBtnText: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 16,
-    color: Colors.light.white,
-  },
-  confirmContainer: {
-    paddingBottom: 10,
-  },
-  confirmCard: {
-    backgroundColor: Colors.light.borderLight,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-  },
-  confirmRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  confirmDivider: {
-    height: 1,
-    backgroundColor: Colors.light.border,
-  },
-  confirmLabel: {
-    fontFamily: "DMSans_500Medium",
-    fontSize: 15,
-    color: Colors.light.textMuted,
-  },
-  confirmValue: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 15,
-    color: Colors.light.text,
-  },
-  confirmAmount: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 20,
-    color: Colors.light.text,
-  },
-  confirmBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 8,
-  },
-  confirmBadgeText: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 13,
-  },
-  confirmBtns: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  backBtn: {
-    width: 52,
-    height: 52,
-    borderRadius: 14,
-    backgroundColor: Colors.light.borderLight,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  executeBtn: {
-    flex: 1,
-    paddingVertical: 16,
-    borderRadius: 14,
-    alignItems: "center",
-  },
-  executeBtnText: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 16,
-    color: Colors.light.white,
-  },
-  successContainer: {
-    alignItems: "center",
-    paddingVertical: 32,
-  },
-  successIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: Colors.light.success,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-  },
-  successTitle: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 22,
-    color: Colors.light.text,
-    marginBottom: 8,
-  },
-  successDesc: {
-    fontFamily: "DMSans_400Regular",
-    fontSize: 15,
-    color: Colors.light.textMuted,
-    marginBottom: 32,
-  },
-  doneBtn: {
-    paddingHorizontal: 48,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: Colors.light.tint,
-  },
-  doneBtnText: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 16,
-    color: Colors.light.white,
-  },
-  mixItem: {
-    backgroundColor: Colors.light.borderLight,
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
-  },
-  mixItemHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    marginBottom: 10,
-  },
-  mixItemTicker: {
-    fontFamily: "DMSans_600SemiBold",
-    fontSize: 15,
-    color: Colors.light.text,
-    flex: 1,
-  },
-  mixItemPct: {
-    fontFamily: "DMSans_700Bold",
-    fontSize: 18,
-    color: Colors.light.text,
-  },
-  mixSliderTrack: {
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: Colors.light.border,
-    marginBottom: 10,
-    overflow: "hidden" as const,
-  },
-  mixSliderFill: {
-    height: 8,
-    borderRadius: 4,
-  },
-  mixBtnRow: {
-    flexDirection: "row",
-    justifyContent: "flex-end",
-    gap: 12,
-  },
-  mixAdjustBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    backgroundColor: Colors.light.card,
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 1,
-    borderColor: Colors.light.border,
-  },
-});
-
 const periods: TimePeriod[] = ["1D", "1W", "1M", "YTD", "1Y"];
 
 export default function InvestmentsScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const {
     investedBalance,
     cashBalance,
     holdings,
+    portfolioIndex,
     autoInvestEnabled,
     toggleAutoInvest,
-    buyProportional,
-    sellProportional,
-    updatePortfolioMix,
   } = useHSA();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("1M");
-  const [tradeModalVisible, setTradeModalVisible] = useState(false);
+  const [selectedHolding, setSelectedHolding] = useState<InvestmentHolding | null>(null);
 
   const chartData = useMemo(() => generateChartData(selectedPeriod), [selectedPeriod]);
   const changeInfo = useMemo(() => getChangeInfo(chartData), [chartData]);
+
+  const pieChartHoldings = useMemo(() => {
+    const hasPresetOnly = holdings.every((h) => h.id === "1" || h.id === "2" || h.id === "3");
+    let items: { name: string; allocation: number; balance: number; color: string }[];
+
+    if (hasPresetOnly) {
+      items = holdings.map((h) => ({
+        name: h.name,
+        allocation: h.allocation,
+        balance: h.balance,
+        color: h.color,
+      }));
+    } else {
+      const presetHoldings = holdings.filter((h) => h.id === "1" || h.id === "2" || h.id === "3");
+      const customHoldings = holdings.filter((h) => h.id !== "1" && h.id !== "2" && h.id !== "3");
+      const presetLabel = PORTFOLIO_PRESETS[portfolioIndex]?.label ?? "Moderate";
+
+      if (presetHoldings.length > 0) {
+        const combined = {
+          name: `${presetLabel} Portfolio`,
+          allocation: presetHoldings.reduce((s, h) => s + h.allocation, 0),
+          balance: presetHoldings.reduce((s, h) => s + h.balance, 0),
+          color: presetHoldings[0]?.color ?? "#2E5E3F",
+        };
+        items = [combined, ...customHoldings.map((h) => ({ name: h.name, allocation: h.allocation, balance: h.balance, color: h.color }))];
+      } else {
+        items = customHoldings.map((h) => ({ name: h.name, allocation: h.allocation, balance: h.balance, color: h.color }));
+      }
+    }
+
+    const filtered = items.filter((h) => h.balance > 0);
+    const sorted = [...filtered].sort((a, b) => b.balance - a.balance);
+    const maxCategories = 4;
+    if (sorted.length <= maxCategories) return sorted;
+    const top = sorted.slice(0, maxCategories - 1);
+    const rest = sorted.slice(maxCategories - 1);
+    const otherAllocation = rest.reduce((s, h) => s + h.allocation, 0);
+    const otherBalance = rest.reduce((s, h) => s + h.balance, 0);
+    return [...top, { name: "Other", allocation: otherAllocation, balance: otherBalance, color: Colors.light.border }];
+  }, [holdings, portfolioIndex]);
+
+  const displayHoldings = useMemo(() => {
+    const hasPresetOnly = holdings.every((h) => h.id === "1" || h.id === "2" || h.id === "3");
+    const presetLabel = PORTFOLIO_PRESETS[portfolioIndex]?.label ?? "Moderate";
+
+    if (hasPresetOnly) {
+      const totalBalance = holdings.reduce((s, h) => s + h.balance, 0);
+      if (totalBalance <= 0) return [];
+      const weightedReturn = holdings.reduce((s, h) => s + (h.balance * h.returnPercent) / totalBalance, 0);
+      return [
+        {
+          id: "__preset__",
+          name: presetLabel,
+          ticker: presetLabel,
+          allocation: 100,
+          balance: totalBalance,
+          returnPercent: weightedReturn,
+          color: holdings[0]?.color ?? "#2E5E3F",
+        } as InvestmentHolding,
+      ];
+    }
+    const presetHoldings = holdings.filter((h) => (h.id === "1" || h.id === "2" || h.id === "3") && h.balance > 0);
+    const customHoldings = holdings.filter((h) => h.id !== "1" && h.id !== "2" && h.id !== "3" && h.balance > 0);
+    if (presetHoldings.length === 0) return customHoldings;
+    const totalBalance = presetHoldings.reduce((s, h) => s + h.balance, 0);
+    const totalAlloc = presetHoldings.reduce((s, h) => s + h.allocation, 0);
+    const weightedReturn = presetHoldings.reduce((s, h) => s + (h.balance * h.returnPercent) / totalBalance, 0);
+    const combined: InvestmentHolding = {
+      id: "__preset__",
+      name: presetLabel,
+      ticker: presetLabel,
+      allocation: totalAlloc,
+      balance: totalBalance,
+      returnPercent: weightedReturn,
+      color: presetHoldings[0]?.color ?? "#2E5E3F",
+    };
+    return [combined, ...customHoldings];
+  }, [holdings, portfolioIndex]);
 
   const totalReturn = holdings.reduce((sum, h) => sum + h.balance * (h.returnPercent / 100), 0);
 
@@ -1165,6 +906,7 @@ export default function InvestmentsScreen() {
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <ScrollView
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 : 100 }]}
         contentInsetAdjustmentBehavior="automatic"
       >
@@ -1227,15 +969,26 @@ export default function InvestmentsScreen() {
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(200).duration(500) : undefined}>
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Portfolio Allocation</Text>
-            <PieChart holdings={holdings} />
+            <PieChart holdings={pieChartHoldings} />
           </View>
         </Animated.View>
 
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(300).duration(500) : undefined}>
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Holdings</Text>
-            {holdings.map((h) => (
-              <HoldingCard key={h.id} holding={h} />
+            <View style={styles.holdingsHeader}>
+              <Text style={styles.sectionTitle}>Holdings</Text>
+              <View style={[styles.portfolioTypeBadge, { backgroundColor: !holdings.some((h) => h.id === "1" || h.id === "2" || h.id === "3") ? Colors.light.accentLight : Colors.light.tintLight }]}>
+                <Text style={[styles.portfolioTypeText, { color: !holdings.some((h) => h.id === "1" || h.id === "2" || h.id === "3") ? Colors.light.accent : Colors.light.tint }]}>
+                  {!holdings.some((h) => h.id === "1" || h.id === "2" || h.id === "3") ? "Self-directed" : "Risk-based"}
+                </Text>
+              </View>
+            </View>
+            {displayHoldings.map((h) => (
+              <HoldingCard
+                key={h.id}
+                holding={h}
+                onPress={() => setSelectedHolding(h)}
+              />
             ))}
           </View>
         </Animated.View>
@@ -1258,7 +1011,7 @@ export default function InvestmentsScreen() {
         <Pressable
           style={styles.tradeButton}
           onPress={() => {
-            setTradeModalVisible(true);
+            router.push("/trade");
             if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           }}
           testID="trade-btn"
@@ -1268,15 +1021,15 @@ export default function InvestmentsScreen() {
         </Pressable>
       </ScrollView>
 
-      <TradeModal
-        visible={tradeModalVisible}
-        onClose={() => setTradeModalVisible(false)}
-        holdings={holdings}
-        cashBalance={cashBalance}
-        investedBalance={investedBalance}
-        onBuyProportional={buyProportional}
-        onSellProportional={sellProportional}
-        onChangeMix={updatePortfolioMix}
+      <HoldingDetailModal
+        holding={selectedHolding}
+        visible={selectedHolding !== null}
+        onClose={() => setSelectedHolding(null)}
+        onTrade={() => {
+          setSelectedHolding(null);
+          router.push("/trade");
+          if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }}
       />
     </View>
   );
@@ -1360,6 +1113,21 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_700Bold",
     fontSize: 17,
     color: Colors.light.text,
+  },
+  holdingsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  portfolioTypeBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  portfolioTypeText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 12,
   },
   chartHeader: {
     flexDirection: "row",
