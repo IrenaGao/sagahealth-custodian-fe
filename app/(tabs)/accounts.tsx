@@ -9,6 +9,10 @@ import {
   Modal,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
+  Dimensions,
+  LayoutAnimation,
+  Keyboard,
 } from "react-native";
 import { Ionicons, Feather } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -17,6 +21,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { useLocalSearchParams, router } from "expo-router";
 import Colors from "@/constants/colors";
 import { useHSA, Receipt, LinkedCard, LinkedBankAccount, getLoyaltyTier, loyaltyTiers, LoyaltyTier } from "@/contexts/HSAContext";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
 function SegmentedControl({
   tabs,
@@ -297,8 +302,7 @@ function AutoReimburseModal({
 }) {
   const presets = useMemo(() => {
     const options: number[] = [];
-    if (totalUnreimbursed >= 100) options.push(100);
-    if (totalUnreimbursed >= 250) options.push(250);
+    if (totalUnreimbursed >= 200) options.push(200);
     if (totalUnreimbursed >= 500) options.push(500);
     if (totalUnreimbursed >= 1000) options.push(1000);
     options.push(totalUnreimbursed);
@@ -309,6 +313,7 @@ function AutoReimburseModal({
   const [customAmount, setCustomAmount] = useState("");
   const [useCustom, setUseCustom] = useState(false);
   const insets = useSafeAreaInsets();
+  const customInputRef = React.useRef<TextInput>(null);
 
   const effectiveAmount = useCustom ? (parseFloat(customAmount) || 0) : selectedAmount;
   const isValid = effectiveAmount > 0 && effectiveAmount <= totalUnreimbursed;
@@ -342,7 +347,11 @@ function AutoReimburseModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={reimburseModalStyles.overlay}>
+      <KeyboardAvoidingView
+        behavior="padding"
+        style={reimburseModalStyles.overlay}
+        keyboardVerticalOffset={0}
+      >
         <View style={[reimburseModalStyles.container, { paddingBottom: insets.bottom + 20 }]}>
           <View style={reimburseModalStyles.header}>
             <Text style={reimburseModalStyles.headerTitle}>Auto-Reimburse</Text>
@@ -375,12 +384,16 @@ function AutoReimburseModal({
 
           <Pressable
             style={[reimburseModalStyles.customRow, useCustom && reimburseModalStyles.customRowActive]}
-            onPress={() => setUseCustom(true)}
+            onPress={() => {
+              setUseCustom(true);
+              customInputRef.current?.focus();
+            }}
           >
             <Text style={reimburseModalStyles.customLabel}>Custom amount</Text>
             <View style={reimburseModalStyles.customInputWrap}>
               <Text style={reimburseModalStyles.dollarSign}>$</Text>
               <TextInput
+                ref={customInputRef}
                 style={reimburseModalStyles.customInput}
                 placeholder="0.00"
                 value={customAmount}
@@ -420,7 +433,7 @@ function AutoReimburseModal({
             </Text>
           </Pressable>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -1177,13 +1190,16 @@ function NewContributionModal({
   };
 
   const presets = useMemo(() => {
-    const options = [100, 250, 500, 1000].filter((v) => v <= remaining);
+    const options = [200, 500, 1000].filter((v) => v <= remaining);
     return options;
   }, [remaining]);
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={ncStyles.overlay}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={ncStyles.overlay}
+      >
         <View style={[ncStyles.container, { paddingBottom: insets.bottom + 20 }]}>
           <View style={ncStyles.header}>
             <Text style={ncStyles.title}>New Contribution</Text>
@@ -1247,7 +1263,7 @@ function NewContributionModal({
             </Text>
           </Pressable>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -2547,6 +2563,28 @@ function AddReceiptModal({
   const [scanning, setScanning] = useState(false);
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const insets = useSafeAreaInsets();
+  const serviceNameRef = React.useRef<TextInput>(null);
+  const { height: screenHeight } = Dimensions.get("window");
+
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    const show = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+    );
+    const hide = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut)
+    );
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+
+  useEffect(() => {
+    if (mode === "manual" || mode === "scanned") {
+      const t = setTimeout(() => serviceNameRef.current?.focus(), 100);
+      return () => clearTimeout(t);
+    }
+  }, [mode]);
 
   const resetForm = () => {
     setTitle(""); setAmount(""); setProvider(""); setCategory("medical");
@@ -2614,8 +2652,20 @@ function AddReceiptModal({
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
-      <View style={modalStyles.overlay}>
-        <View style={[modalStyles.container, { paddingBottom: insets.bottom + 20 }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={modalStyles.overlay}
+        keyboardVerticalOffset={insets.top}
+      >
+        <View
+          style={[
+            modalStyles.container,
+            {
+              paddingBottom: insets.bottom + 20,
+              maxHeight: Math.min(screenHeight * 0.58, 380),
+            },
+          ]}
+        >
           <View style={modalStyles.header}>
             <View style={modalStyles.headerLeft}>
               {mode !== "choose" && (
@@ -2675,101 +2725,119 @@ function AddReceiptModal({
           )}
 
           {(mode === "manual" || mode === "scanned") && !scanning && (
-            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 400 }}>
-              {mode === "scanned" && (
-                <View style={modalStyles.scannedBanner}>
-                  <Feather name="check-circle" size={16} color={Colors.light.tint} />
-                  <Text style={modalStyles.scannedText}>Details extracted from your receipt. Review and edit if needed.</Text>
-                </View>
-              )}
+            (() => {
+              const scrollProps = {
+                showsVerticalScrollIndicator: false,
+                keyboardShouldPersistTaps: "handled" as const,
+                contentContainerStyle: { paddingBottom: 12 },
+                style: { maxHeight: 280 },
+              };
+              const FormContent = () => (
+                <>
+                  {mode === "scanned" && (
+                    <View style={modalStyles.scannedBanner}>
+                      <Feather name="check-circle" size={14} color={Colors.light.tint} />
+                      <Text style={modalStyles.scannedText}>Details extracted. Review and edit if needed.</Text>
+                    </View>
+                  )}
 
-              <View style={modalStyles.field}>
-                <Text style={modalStyles.label}>Service Name</Text>
-                <TextInput
-                  style={modalStyles.input}
-                  placeholder="e.g., Annual Physical"
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholderTextColor={Colors.light.textMuted}
-                />
-              </View>
-
-              <View style={modalStyles.field}>
-                <Text style={modalStyles.label}>Provider</Text>
-                <TextInput
-                  style={modalStyles.input}
-                  placeholder="e.g., Dr. Smith"
-                  value={provider}
-                  onChangeText={setProvider}
-                  placeholderTextColor={Colors.light.textMuted}
-                />
-              </View>
-
-              <View style={modalStyles.field}>
-                <Text style={modalStyles.label}>Amount ($)</Text>
-                <TextInput
-                  style={modalStyles.input}
-                  placeholder="0.00"
-                  value={amount}
-                  onChangeText={setAmount}
-                  keyboardType="decimal-pad"
-                  placeholderTextColor={Colors.light.textMuted}
-                />
-              </View>
-
-              <View style={modalStyles.field}>
-                <Text style={modalStyles.label}>Date</Text>
-                <TextInput
-                  style={modalStyles.input}
-                  placeholder="YYYY-MM-DD"
-                  value={receiptDate}
-                  onChangeText={setReceiptDate}
-                  placeholderTextColor={Colors.light.textMuted}
-                />
-              </View>
-
-              <View style={modalStyles.field}>
-                <Text style={modalStyles.label}>Expense Type</Text>
-                <Pressable
-                  style={modalStyles.categoryPicker}
-                  onPress={() => setShowCategoryPicker(!showCategoryPicker)}
-                >
-                  <Text style={modalStyles.categoryPickerText}>{selectedCategoryLabel}</Text>
-                  <Feather name={showCategoryPicker ? "chevron-up" : "chevron-down"} size={18} color={Colors.light.textMuted} />
-                </Pressable>
-                {showCategoryPicker && (
-                  <View style={modalStyles.categoryList}>
-                    {EXPENSE_CATEGORIES.map((cat) => (
-                      <Pressable
-                        key={cat.value}
-                        style={[modalStyles.categoryItem, category === cat.value && modalStyles.categoryItemActive]}
-                        onPress={() => { setCategory(cat.value); setShowCategoryPicker(false); if (Platform.OS !== "web") Haptics.selectionAsync(); }}
-                      >
-                        <Text style={[modalStyles.categoryItemText, category === cat.value && modalStyles.categoryItemTextActive]}>
-                          {cat.label}
-                        </Text>
-                        {category === cat.value && <Feather name="check" size={16} color={Colors.light.tint} />}
-                      </Pressable>
-                    ))}
+                  <View style={modalStyles.field}>
+                    <Text style={modalStyles.label}>Service Name</Text>
+                    <TextInput
+                      ref={serviceNameRef}
+                      style={modalStyles.input}
+                      placeholder="e.g., Annual Physical"
+                      value={title}
+                      onChangeText={setTitle}
+                      placeholderTextColor={Colors.light.textMuted}
+                      autoFocus
+                    />
                   </View>
-                )}
-              </View>
 
-              <Pressable
-                style={({ pressed }) => [
-                  modalStyles.addBtn,
-                  { opacity: pressed ? 0.8 : 1, backgroundColor: !canSubmit ? Colors.light.border : Colors.light.tint },
-                ]}
-                onPress={handleAdd}
-                disabled={!canSubmit}
-              >
-                <Feather name="check" size={16} color={Colors.light.white} />
-                <Text style={modalStyles.addBtnText}>Add Receipt</Text>
-              </Pressable>
-            </ScrollView>
+                  <View style={modalStyles.field}>
+                    <Text style={modalStyles.label}>Provider</Text>
+                    <TextInput
+                      style={modalStyles.input}
+                      placeholder="e.g., Dr. Smith"
+                      value={provider}
+                      onChangeText={setProvider}
+                      placeholderTextColor={Colors.light.textMuted}
+                    />
+                  </View>
+
+                  <View style={modalStyles.fieldRow}>
+                    <View style={[modalStyles.field, modalStyles.fieldHalf]}>
+                      <Text style={modalStyles.label}>Amount ($)</Text>
+                      <TextInput
+                        style={modalStyles.input}
+                        placeholder="0.00"
+                        value={amount}
+                        onChangeText={setAmount}
+                        keyboardType="decimal-pad"
+                        placeholderTextColor={Colors.light.textMuted}
+                      />
+                    </View>
+                    <View style={[modalStyles.field, modalStyles.fieldHalf]}>
+                      <Text style={modalStyles.label}>Date</Text>
+                      <TextInput
+                        style={modalStyles.input}
+                        placeholder="YYYY-MM-DD"
+                        value={receiptDate}
+                        onChangeText={setReceiptDate}
+                        placeholderTextColor={Colors.light.textMuted}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={modalStyles.field}>
+                    <Text style={modalStyles.label}>Expense Type</Text>
+                    <Pressable
+                      style={modalStyles.categoryPicker}
+                      onPress={() => setShowCategoryPicker(!showCategoryPicker)}
+                    >
+                      <Text style={modalStyles.categoryPickerText}>{selectedCategoryLabel}</Text>
+                      <Feather name={showCategoryPicker ? "chevron-up" : "chevron-down"} size={18} color={Colors.light.textMuted} />
+                    </Pressable>
+                    {showCategoryPicker && (
+                      <View style={modalStyles.categoryList}>
+                        {EXPENSE_CATEGORIES.map((cat) => (
+                          <Pressable
+                            key={cat.value}
+                            style={[modalStyles.categoryItem, category === cat.value && modalStyles.categoryItemActive]}
+                            onPress={() => { setCategory(cat.value); setShowCategoryPicker(false); if (Platform.OS !== "web") Haptics.selectionAsync(); }}
+                          >
+                            <Text style={[modalStyles.categoryItemText, category === cat.value && modalStyles.categoryItemTextActive]}>
+                              {cat.label}
+                            </Text>
+                            {category === cat.value && <Feather name="check" size={16} color={Colors.light.tint} />}
+                          </Pressable>
+                        ))}
+                      </View>
+                    )}
+                  </View>
+
+                  <Pressable
+                    style={({ pressed }) => [
+                      modalStyles.addBtn,
+                      { opacity: pressed ? 0.8 : 1, backgroundColor: !canSubmit ? Colors.light.border : Colors.light.tint },
+                    ]}
+                    onPress={handleAdd}
+                    disabled={!canSubmit}
+                  >
+                    <Feather name="check" size={16} color={Colors.light.white} />
+                    <Text style={modalStyles.addBtnText}>Add Receipt</Text>
+                  </Pressable>
+                </>
+              );
+              return Platform.OS === "web" ? (
+                <ScrollView {...scrollProps}><FormContent /></ScrollView>
+              ) : (
+                <KeyboardAwareScrollView bottomOffset={20} {...scrollProps}><FormContent /></KeyboardAwareScrollView>
+              );
+            })()
           )}
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -2803,11 +2871,13 @@ const modalStyles = StyleSheet.create({
     gap: 8,
     backgroundColor: Colors.light.tintLight,
     borderRadius: 10,
-    padding: 12,
-    marginBottom: 16,
+    padding: 10,
+    marginBottom: 12,
   },
   scannedText: { fontFamily: "DMSans_500Medium", fontSize: 12, color: Colors.light.tint, flex: 1 },
-  field: { marginBottom: 16, gap: 6 },
+  field: { marginBottom: 12, gap: 6 },
+  fieldRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
+  fieldHalf: { flex: 1, marginBottom: 0 },
   label: { fontFamily: "DMSans_500Medium", fontSize: 13, color: Colors.light.textSecondary },
   input: {
     borderWidth: 1,
@@ -2841,9 +2911,9 @@ const modalStyles = StyleSheet.create({
     justifyContent: "center",
     gap: 8,
     borderRadius: 12,
-    paddingVertical: 14,
-    marginTop: 4,
-    marginBottom: 8,
+    paddingVertical: 12,
+    marginTop: 2,
+    marginBottom: 4,
   },
   addBtnText: { fontFamily: "DMSans_600SemiBold", fontSize: 15, color: Colors.light.white },
 });

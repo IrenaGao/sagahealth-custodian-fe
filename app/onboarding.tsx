@@ -20,7 +20,9 @@ import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import Colors from "@/constants/colors";
 import { useHSA } from "@/contexts/HSAContext";
 
-const TOTAL_STEPS = 11;
+const TOTAL_STEPS = 12;
+
+const EMPLOYMENT_OPTIONS = ["Employed", "Retired", "Student", "Unemployed", "Self-employed"] as const;
 
 const banks = [
   { id: "chase", name: "Chase" },
@@ -89,6 +91,7 @@ export default function OnboardingScreen() {
   const { completeOnboarding, toggleAutoInvest } = useHSA();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const bottomPad = Platform.OS === "web" ? 34 : 16;
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const [step, setStep] = useState(0);
 
@@ -119,6 +122,15 @@ export default function OnboardingScreen() {
 
   const [fundsAvailable, setFundsAvailable] = useState(false);
 
+  const [irsWithholdingBackup, setIrsWithholdingBackup] = useState<boolean | null>(null);
+  const [employmentStatus, setEmploymentStatus] = useState<string | null>(null);
+  const [directorOfPublicCompany, setDirectorOfPublicCompany] = useState<boolean | null>(null);
+  const [directorStockTicker, setDirectorStockTicker] = useState("");
+  const [politicallyExposed, setPoliticallyExposed] = useState<boolean | null>(null);
+  const [pepFullName, setPepFullName] = useState("");
+  const [brokerDealerAffiliate, setBrokerDealerAffiliate] = useState<boolean | null>(null);
+  const [investmentConsentAgreed, setInvestmentConsentAgreed] = useState(false);
+
   const [q1, setQ1] = useState<number | null>(null);
   const [q2, setQ2] = useState<number | null>(null);
   const [q3, setQ3] = useState<number | null>(null);
@@ -132,6 +144,8 @@ export default function OnboardingScreen() {
 
   const [autoInvest, setAutoInvest] = useState(true);
   const [investPercent, setInvestPercent] = useState(100);
+  const [investPercentCustomMode, setInvestPercentCustomMode] = useState(false);
+  const [investPercentCustomText, setInvestPercentCustomText] = useState("");
   const [investmentConfirmed, setInvestmentConfirmed] = useState(false);
 
   useEffect(() => {
@@ -142,20 +156,15 @@ export default function OnboardingScreen() {
   }, [step]);
 
   useEffect(() => {
-    if (step === 7) {
-      if (contributionAmount <= 0) {
-        setStep(8);
-        return;
-      }
-      setFundsAvailable(false);
-      const t = setTimeout(() => setFundsAvailable(true), 3000);
-      return () => clearTimeout(t);
+    if (step === 9) {
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
     }
   }, [step]);
 
+
   const goNext = () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (step === 10) {
+    if (step === 11) {
       if (!investmentConfirmed) {
         setInvestmentConfirmed(true);
         return;
@@ -199,15 +208,27 @@ export default function OnboardingScreen() {
       case 6:
         return contributionAmount > 0;
       case 7:
-        return fundsAvailable;
-      case 8:
-        return q1 !== null && q2 !== null && q3 !== null && q4 !== null && q5 !== null;
+        return true;
+      case 8: {
+        const baseValid =
+          irsWithholdingBackup !== null &&
+          employmentStatus !== null &&
+          directorOfPublicCompany !== null &&
+          politicallyExposed !== null &&
+          brokerDealerAffiliate !== null &&
+          investmentConsentAgreed;
+        const directorValid = directorOfPublicCompany !== true || directorStockTicker.trim().length > 0;
+        const pepValid = politicallyExposed !== true || pepFullName.trim().length > 0;
+        return baseValid && directorValid && pepValid;
+      }
       case 9:
+        return q1 !== null && q2 !== null && q3 !== null && q4 !== null && q5 !== null;
+      case 10:
         if (useCustomTickers) {
           return customTickerSelections.length > 0 && customTickerTotal === 100;
         }
         return true;
-      case 10:
+      case 11:
         return true;
       default:
         return false;
@@ -217,7 +238,7 @@ export default function OnboardingScreen() {
   const getButtonText = (): string => {
     if (step === 4) return "Add Funds";
     if (step === 7) return "Start Investing";
-    if (step === 10) {
+    if (step === 11) {
       if (investmentConfirmed) return "Go to Dashboard";
       return "Confirm & Invest";
     }
@@ -591,22 +612,188 @@ export default function OnboardingScreen() {
       case 7:
         return (
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
-            {fundsAvailable ? (
-              <>
-                <Ionicons name="checkmark-circle" size={64} color={Colors.light.success} />
-                <Text style={styles.successTitle}>Funds Available</Text>
-              </>
-            ) : (
-              <>
-                <Ionicons name="time" size={64} color={Colors.light.accent} />
-                <Text style={styles.successTitle}>Funds Pending</Text>
-              </>
+            <Ionicons name="time" size={64} color={Colors.light.accent} />
+            <Text style={styles.successTitle}>
+              {contributionAmount > 0 ? "Your funds are pending" : "Let's set up your investments"}
+            </Text>
+            <Text style={styles.successSubtitle}>
+              Now let's set up your HSA investments so you maximize triple tax advantage growth.
+            </Text>
+            {contributionAmount > 0 && (
+              <Text style={styles.successSubtitle}>${contributionAmount.toLocaleString()} contribution</Text>
             )}
-            <Text style={styles.successSubtitle}>${contributionAmount.toLocaleString()}</Text>
           </Animated.View>
         );
 
       case 8:
+        return (
+          <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
+            <Text style={styles.stepTitle}>Investment Compliance</Text>
+            <Text style={styles.stepSubtitle}>A few questions before we set up your investment profile</Text>
+            <View style={styles.questionSection}>
+              <Text style={styles.questionLabel}>Are you subject to IRS backup withholding?</Text>
+              <View style={styles.optionsWrap}>
+                <Pressable
+                  style={[styles.optionPill, irsWithholdingBackup === false && styles.optionPillActive]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.selectionAsync();
+                    setIrsWithholdingBackup(false);
+                  }}
+                >
+                  <Text style={[styles.optionPillText, irsWithholdingBackup === false && styles.optionPillTextActive]}>No</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.optionPill, irsWithholdingBackup === true && styles.optionPillActive]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.selectionAsync();
+                    setIrsWithholdingBackup(true);
+                  }}
+                >
+                  <Text style={[styles.optionPillText, irsWithholdingBackup === true && styles.optionPillTextActive]}>Yes</Text>
+                </Pressable>
+              </View>
+            </View>
+            <View style={styles.questionSection}>
+              <Text style={styles.questionLabel}>Employment status</Text>
+              <View style={styles.optionsWrap}>
+                {EMPLOYMENT_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt}
+                    style={[styles.optionPill, employmentStatus === opt && styles.optionPillActive]}
+                    onPress={() => {
+                      if (Platform.OS !== "web") Haptics.selectionAsync();
+                      setEmploymentStatus(opt);
+                    }}
+                  >
+                    <Text style={[styles.optionPillText, employmentStatus === opt && styles.optionPillTextActive]}>{opt}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            <View style={styles.questionSection}>
+              <Text style={styles.questionLabel}>Are you a Director, Officer, or 10% stock owner of a publicly traded company?</Text>
+              <Text style={styles.questionHint}>Indicates whether the member is a Director, Officer, or 10% stock owner of a publicly traded company.</Text>
+              <View style={styles.optionsWrap}>
+                <Pressable
+                  style={[styles.optionPill, directorOfPublicCompany === false && styles.optionPillActive]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.selectionAsync();
+                    setDirectorOfPublicCompany(false);
+                    setDirectorStockTicker("");
+                  }}
+                >
+                  <Text style={[styles.optionPillText, directorOfPublicCompany === false && styles.optionPillTextActive]}>No</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.optionPill, directorOfPublicCompany === true && styles.optionPillActive]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.selectionAsync();
+                    setDirectorOfPublicCompany(true);
+                  }}
+                >
+                  <Text style={[styles.optionPillText, directorOfPublicCompany === true && styles.optionPillTextActive]}>Yes</Text>
+                </Pressable>
+              </View>
+              {directorOfPublicCompany === true && (
+                <View style={[styles.formGroup, { marginTop: 12 }]}>
+                  <Text style={styles.inputLabel}>Stock ticker of the company</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={directorStockTicker}
+                    onChangeText={(t) => setDirectorStockTicker(t.toUpperCase())}
+                    placeholder="e.g. AAPL, MSFT"
+                    placeholderTextColor={Colors.light.textMuted}
+                    autoCapitalize="characters"
+                  />
+                </View>
+              )}
+            </View>
+            <View style={styles.questionSection}>
+              <Text style={styles.questionLabel}>Are you a politically exposed person or public official?</Text>
+              <Text style={styles.questionHint}>Indicates whether the member is a current or former politically exposed person or public official (includes US and Foreign). A politically exposed person is someone who has been entrusted with a prominent public function, or who is closely related to such a person.</Text>
+              <View style={styles.optionsWrap}>
+                <Pressable
+                  style={[styles.optionPill, politicallyExposed === false && styles.optionPillActive]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.selectionAsync();
+                    setPoliticallyExposed(false);
+                    setPepFullName("");
+                  }}
+                >
+                  <Text style={[styles.optionPillText, politicallyExposed === false && styles.optionPillTextActive]}>No</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.optionPill, politicallyExposed === true && styles.optionPillActive]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.selectionAsync();
+                    setPoliticallyExposed(true);
+                  }}
+                >
+                  <Text style={[styles.optionPillText, politicallyExposed === true && styles.optionPillTextActive]}>Yes</Text>
+                </Pressable>
+              </View>
+              {politicallyExposed === true && (
+                <View style={[styles.formGroup, { marginTop: 12 }]}>
+                  <Text style={styles.inputLabel}>Full name of the politically exposed person</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={pepFullName}
+                    onChangeText={setPepFullName}
+                    placeholder="Enter full name"
+                    placeholderTextColor={Colors.light.textMuted}
+                  />
+                </View>
+              )}
+            </View>
+            <View style={styles.questionSection}>
+              <Text style={styles.questionLabel}>Is your current employer a broker/dealer?</Text>
+              <Text style={styles.questionHint}>Indicates whether the member's current employer is a broker/dealer.</Text>
+              <View style={styles.optionsWrap}>
+                <Pressable
+                  style={[styles.optionPill, brokerDealerAffiliate === false && styles.optionPillActive]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.selectionAsync();
+                    setBrokerDealerAffiliate(false);
+                  }}
+                >
+                  <Text style={[styles.optionPillText, brokerDealerAffiliate === false && styles.optionPillTextActive]}>No</Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.optionPill, brokerDealerAffiliate === true && styles.optionPillActive]}
+                  onPress={() => {
+                    if (Platform.OS !== "web") Haptics.selectionAsync();
+                    setBrokerDealerAffiliate(true);
+                  }}
+                >
+                  <Text style={[styles.optionPillText, brokerDealerAffiliate === true && styles.optionPillTextActive]}>Yes</Text>
+                </Pressable>
+              </View>
+            </View>
+            <View style={[styles.disclosureBox, { height: 180, marginTop: 8, marginBottom: 20 }]}>
+              <ScrollView style={styles.disclosureScroll} nestedScrollEnabled>
+                <Text style={styles.disclosureText}>
+                  INVESTMENTS CONSENT DISCLOSURE{"\n\n"}
+                  By proceeding with investment services, you acknowledge that investing through your HSA involves risk, including the possible loss of principal. Past performance is not indicative of future results. Saga Health provides investment options for informational purposes only and does not provide investment, tax, or legal advice.{"\n\n"}
+                  You understand that you are solely responsible for your investment decisions and that you should consult with qualified professionals regarding your specific financial situation. By checking the box below, you confirm that you have read, understood, and agree to the terms of this Investments Consent Disclosure.
+                </Text>
+              </ScrollView>
+            </View>
+            <Pressable
+              style={styles.checkboxRow}
+              onPress={() => {
+                if (Platform.OS !== "web") Haptics.selectionAsync();
+                setInvestmentConsentAgreed(!investmentConsentAgreed);
+              }}
+            >
+              <View style={[styles.checkbox, investmentConsentAgreed && styles.checkboxActive]}>
+                {investmentConsentAgreed && <Ionicons name="checkmark" size={14} color={Colors.light.white} />}
+              </View>
+              <Text style={styles.checkboxLabel}>I agree to the Investments Consent Disclosure</Text>
+            </Pressable>
+          </Animated.View>
+        );
+
+      case 9:
         return (
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Investment Profile</Text>
@@ -699,7 +886,7 @@ export default function OnboardingScreen() {
           </Animated.View>
         );
 
-      case 9:
+      case 10:
         return (
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Recommended Portfolio</Text>
@@ -850,7 +1037,7 @@ export default function OnboardingScreen() {
           </Animated.View>
         );
 
-      case 10:
+      case 11:
         if (investmentConfirmed) {
           return (
             <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
@@ -878,26 +1065,81 @@ export default function OnboardingScreen() {
                 thumbColor={Colors.light.white}
               />
             </View>
+            {autoInvest ? (
             <View style={styles.investPercentSection}>
               <Text style={styles.toggleLabel}>Contribution Investment Percentage</Text>
               <Text style={styles.investPercentSubtitle}>What percentage of your contributions should be invested?</Text>
-              <View style={styles.investPercentWrap}>
-                {[25, 50, 75, 100].map((pct) => (
+              {investPercentCustomMode ? (
+                <View style={styles.customInvestPercentWrap}>
+                  <View style={styles.customAmountInputRow}>
+                    <TextInput
+                      style={styles.customInvestPercentInput}
+                      value={investPercentCustomText}
+                      onChangeText={(text) => {
+                        const cleaned = text.replace(/\D/g, "").slice(0, 3);
+                        setInvestPercentCustomText(cleaned);
+                        const val = parseInt(cleaned, 10);
+                        if (!isNaN(val) && val >= 0 && val <= 100) {
+                          setInvestPercent(val);
+                        } else if (cleaned === "") {
+                          setInvestPercent(0);
+                        }
+                      }}
+                      placeholder="0"
+                      placeholderTextColor={Colors.light.textMuted}
+                      keyboardType="number-pad"
+                      maxLength={3}
+                      autoFocus
+                    />
+                    <Text style={styles.customInvestPercentSuffix}>%</Text>
+                  </View>
+                  <Text style={styles.customAmountHint}>Enter 0-100</Text>
                   <Pressable
-                    key={pct}
-                    style={[styles.investPercentPill, investPercent === pct && styles.presetBtnActive]}
+                    style={styles.customBackLink}
                     onPress={() => {
+                      setInvestPercentCustomMode(false);
+                      setInvestPercentCustomText("");
+                      setInvestPercent(100);
                       if (Platform.OS !== "web") Haptics.selectionAsync();
-                      setInvestPercent(pct);
                     }}
                   >
-                    <Text style={[styles.presetBtnText, investPercent === pct && styles.presetBtnTextActive]}>
-                      {pct}%
-                    </Text>
+                    <Feather name="arrow-left" size={14} color={Colors.light.tint} />
+                    <Text style={styles.customBackLinkText}>Back to presets</Text>
                   </Pressable>
-                ))}
-              </View>
+                </View>
+              ) : (
+                <View style={styles.investPercentWrap}>
+                  {[25, 50, 75, 100].map((pct) => (
+                    <Pressable
+                      key={pct}
+                      style={[styles.investPercentPill, !investPercentCustomMode && investPercent === pct && styles.presetBtnActive]}
+                      onPress={() => {
+                        if (Platform.OS !== "web") Haptics.selectionAsync();
+                        setInvestPercent(pct);
+                        setInvestPercentCustomMode(false);
+                        setInvestPercentCustomText("");
+                      }}
+                    >
+                      <Text style={[styles.presetBtnText, !investPercentCustomMode && investPercent === pct && styles.presetBtnTextActive]}>
+                        {pct}%
+                      </Text>
+                    </Pressable>
+                  ))}
+                  <Pressable
+                    style={[styles.investPercentPill, styles.customBtn]}
+                    onPress={() => {
+                      if (Platform.OS !== "web") Haptics.selectionAsync();
+                      setInvestPercentCustomMode(true);
+                      setInvestPercentCustomText(investPercent > 0 && investPercent <= 100 && ![25, 50, 75, 100].includes(investPercent) ? String(investPercent) : "");
+                    }}
+                  >
+                    <Feather name="edit-2" size={14} color={Colors.light.textSecondary} style={{ marginRight: 4 }} />
+                    <Text style={styles.presetBtnText}>Custom</Text>
+                  </Pressable>
+                </View>
+              )}
             </View>
+            ) : null}
           </Animated.View>
         );
 
@@ -923,6 +1165,7 @@ export default function OnboardingScreen() {
       </View>
 
       <KeyboardAwareScrollViewCompat
+        ref={scrollViewRef}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + bottomPad + 24 }]}
@@ -1384,6 +1627,14 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     lineHeight: 22,
   },
+  questionHint: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.textSecondary,
+    marginTop: -6,
+    marginBottom: 14,
+    lineHeight: 18,
+  },
   optionsWrap: {
     gap: 10,
   },
@@ -1651,6 +1902,27 @@ const styles = StyleSheet.create({
   },
   investPercentSection: {
     marginTop: 10,
+  },
+  customInvestPercentWrap: {
+    marginTop: 8,
+  },
+  customInvestPercentRow: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  customInvestPercentInput: {
+    flex: 1,
+    fontFamily: "DMSans_700Bold",
+    fontSize: 24,
+    color: Colors.light.tint,
+    paddingVertical: 4,
+    textAlign: "left" as const,
+  },
+  customInvestPercentSuffix: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 24,
+    color: Colors.light.tint,
+    marginLeft: 4,
   },
   investPercentSubtitle: {
     fontFamily: "DMSans_400Regular",
