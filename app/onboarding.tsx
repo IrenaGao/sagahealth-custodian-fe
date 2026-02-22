@@ -97,9 +97,10 @@ export default function OnboardingScreen() {
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [password, setPassword] = useState("");
+
   const [dob, setDob] = useState("");
   const [ssn, setSsn] = useState("");
-
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [street, setStreet] = useState("");
@@ -186,6 +187,12 @@ export default function OnboardingScreen() {
     if (step > 0) setStep(step - 1);
   };
 
+  const handleSkip = () => {
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    completeOnboarding(firstName.trim() || undefined);
+    router.replace("/(tabs)");
+  };
+
   const handleBankSelect = (bankId: string) => {
     if (Platform.OS !== "web") Haptics.selectionAsync();
     setConnectingBank(bankId);
@@ -198,9 +205,22 @@ export default function OnboardingScreen() {
   const canContinue = (): boolean => {
     switch (step) {
       case 0:
-        return firstName.trim().length > 0 && lastName.trim().length > 0 && dob.trim().length > 0 && ssn.trim().length >= 9;
+        return (
+          firstName.trim().length > 0 &&
+          lastName.trim().length > 0 &&
+          phone.trim().length >= 14 &&
+          password.length >= 8
+        );
       case 1:
-        return email.trim().length > 0 && phone.trim().length > 0 && street.trim().length > 0 && city.trim().length > 0 && state.trim().length === 2 && zip.trim().length >= 5;
+        return (
+          dob.trim().length >= 10 &&
+          ssn.trim().length >= 11 &&
+          email.trim().length > 0 &&
+          street.trim().length > 0 &&
+          city.trim().length > 0 &&
+          state.trim().length === 2 &&
+          zip.trim().length >= 5
+        );
       case 2:
         return planType !== null && agreedDisclosures;
       case 4:
@@ -302,12 +322,12 @@ export default function OnboardingScreen() {
               </View>
             </View>
             <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Date of Birth</Text>
-              <TextInput style={styles.input} value={dob} onChangeText={(t) => setDob(formatDob(t))} placeholder="MM/DD/YYYY" placeholderTextColor={Colors.light.textMuted} keyboardType="number-pad" maxLength={10} />
+              <Text style={styles.inputLabel}>Phone Number</Text>
+              <TextInput style={styles.input} value={phone} onChangeText={(t) => setPhone(formatPhone(t))} placeholder="(555) 555-5555" placeholderTextColor={Colors.light.textMuted} keyboardType="phone-pad" maxLength={14} />
             </View>
             <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Social Security Number</Text>
-              <TextInput style={styles.input} value={ssn} onChangeText={(t) => setSsn(formatSsn(t))} placeholder="XXX-XX-XXXX" placeholderTextColor={Colors.light.textMuted} secureTextEntry maxLength={11} keyboardType="number-pad" />
+              <Text style={styles.inputLabel}>Password</Text>
+              <TextInput style={styles.input} value={password} onChangeText={setPassword} placeholder="Create a password (min 8 characters)" placeholderTextColor={Colors.light.textMuted} secureTextEntry autoCapitalize="none" autoComplete="off" />
             </View>
           </Animated.View>
         );
@@ -316,14 +336,17 @@ export default function OnboardingScreen() {
         return (
           <View style={styles.stepContent}>
             <Text style={styles.stepTitle}>Contact & Address</Text>
-            <Text style={styles.stepSubtitle}>Where should we send your Saga debit card?</Text>
+            <View style={styles.formGroup}>
+              <Text style={styles.inputLabel}>Date of Birth</Text>
+              <TextInput style={styles.input} value={dob} onChangeText={(t) => setDob(formatDob(t))} placeholder="MM/DD/YYYY" placeholderTextColor={Colors.light.textMuted} keyboardType="number-pad" maxLength={10} />
+            </View>
+            <View style={styles.formGroup}>
+              <Text style={styles.inputLabel}>Social Security Number</Text>
+              <TextInput style={styles.input} value={ssn} onChangeText={(t) => setSsn(formatSsn(t))} placeholder="XXX-XX-XXXX" placeholderTextColor={Colors.light.textMuted} secureTextEntry maxLength={11} keyboardType="number-pad" />
+            </View>
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <TextInput style={styles.input} value={email} onChangeText={(t) => setEmail(t)} placeholder="you@email.com" placeholderTextColor={Colors.light.textMuted} keyboardType="email-address" autoCapitalize="none" autoComplete="off" />
-            </View>
-            <View style={styles.formGroup}>
-              <Text style={styles.inputLabel}>Phone Number</Text>
-              <TextInput style={styles.input} value={phone} onChangeText={(t) => setPhone(formatPhone(t))} placeholder="(555) 555-5555" placeholderTextColor={Colors.light.textMuted} keyboardType="phone-pad" maxLength={14} autoComplete="off" />
             </View>
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Street Name</Text>
@@ -1161,7 +1184,13 @@ export default function OnboardingScreen() {
         <View style={styles.progressBarContainer}>
           <View style={[styles.progressBarFill, { width: `${((step + 1) / TOTAL_STEPS) * 100}%` }]} />
         </View>
-        <View style={styles.backBtn} />
+        {step > 0 ? (
+          <Pressable onPress={handleSkip} style={styles.skipBtn} hitSlop={8}>
+            <Text style={styles.skipBtnText}>Skip</Text>
+          </Pressable>
+        ) : (
+          <View style={styles.skipBtn} />
+        )}
       </View>
 
       <KeyboardAwareScrollViewCompat
@@ -1217,6 +1246,18 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: "center",
     justifyContent: "center",
+  },
+  skipBtn: {
+    paddingHorizontal: 4,
+    paddingVertical: 6,
+    minWidth: 32,
+    alignItems: "flex-end",
+    justifyContent: "center",
+  },
+  skipBtnText: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 15,
+    color: Colors.light.tint,
   },
   progressBarContainer: {
     flex: 1,

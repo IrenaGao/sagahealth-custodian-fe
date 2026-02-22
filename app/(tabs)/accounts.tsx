@@ -291,12 +291,14 @@ function AutoReimburseModal({
   visible,
   onClose,
   totalUnreimbursed,
+  unreimbursedCount,
   cashBalance,
   onReimburse,
 }: {
   visible: boolean;
   onClose: () => void;
   totalUnreimbursed: number;
+  unreimbursedCount: number;
   cashBalance: number;
   onReimburse: (amount: number) => void;
 }) {
@@ -361,7 +363,7 @@ function AutoReimburseModal({
           </View>
 
           <Text style={reimburseModalStyles.desc}>
-            Choose how much to reimburse from your ${totalUnreimbursed.toLocaleString(undefined, { minimumFractionDigits: 2 })} unreimbursed balance. Oldest receipts are reimbursed first.
+            Choose how much to reimburse from your ${totalUnreimbursed.toLocaleString(undefined, { minimumFractionDigits: 2 })} balance. Oldest receipts are reimbursed first.{"\n"}You have <Text style={reimburseModalStyles.descBold}>{unreimbursedCount}</Text> receipt{unreimbursedCount === 1 ? "" : "s"} unreimbursed.
           </Text>
 
           <View style={reimburseModalStyles.presetRow}>
@@ -464,9 +466,13 @@ const reimburseModalStyles = StyleSheet.create({
   desc: {
     fontFamily: "DMSans_400Regular",
     fontSize: 14,
-    color: Colors.light.textSecondary,
+    color: Colors.light.text,
     lineHeight: 20,
     marginBottom: 20,
+  },
+  descBold: {
+    fontFamily: "DMSans_700Bold",
+    color: Colors.light.text,
   },
   presetRow: {
     flexDirection: "row",
@@ -743,6 +749,7 @@ function ReceiptsDashboard({
         visible={showAutoReimburse}
         onClose={() => setShowAutoReimburse(false)}
         totalUnreimbursed={totalUnreimbursed}
+        unreimbursedCount={receipts.filter((r) => r.status === "unreimbursed").length}
         cashBalance={cashBalance}
         onReimburse={onAutoReimburse}
       />
