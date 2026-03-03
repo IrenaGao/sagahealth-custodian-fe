@@ -46,10 +46,13 @@ export default function RootLayout() {
     }
   }, [fontsLoaded]);
 
-  // On the top-level web window, hand off to the iframe wrapper.
-  // Inside the iframe window.self !== window.top, so the app renders normally
-  // with a true 393px viewport — exactly like DevTools iPhone 16 emulation.
-  if (Platform.OS === "web" && typeof window !== "undefined" && window.self === window.top) {
+  // On the top-level web window (desktop), hand off to the iframe wrapper.
+  // Skip it on real mobile browsers so the app renders full-screen natively.
+  const isMobileUA =
+    typeof window !== "undefined" &&
+    /Android|iPhone|iPod|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+  if (Platform.OS === "web" && !isMobileUA && typeof window !== "undefined" && window.self === window.top) {
     return <MobileWebFrame />;
   }
 

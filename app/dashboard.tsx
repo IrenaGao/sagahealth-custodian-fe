@@ -8,7 +8,7 @@ export default function DashboardRedirect() {
   const { completeOnboarding } = useHSA();
 
   useEffect(() => {
-    completeOnboarding();
+    completeOnboarding("Alex");
     router.replace("/(tabs)");
   }, [completeOnboarding]);
 
