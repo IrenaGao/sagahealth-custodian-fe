@@ -10,7 +10,11 @@ import Colors from "@/constants/colors";
 
 function NativeTabLayout() {
   return (
-    <NativeTabs>
+    <NativeTabs
+      blurEffect="systemChromeMaterialDark"
+      tintColor={Colors.light.tint}
+      iconColor={{ default: "rgba(255,255,255,0.5)", selected: Colors.light.tint }}
+    >
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: "house", selected: "house.fill" }} />
         <Label>Home</Label>

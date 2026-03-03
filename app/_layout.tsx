@@ -2,7 +2,19 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
-import { Platform } from "react-native";
+import { Platform, Text, TextInput } from "react-native";
+
+// Prevent iOS Accessibility "Larger Text" from scaling the app's fonts.
+// defaultProps doesn't work in React 19, so we patch the forwardRef render fn instead.
+function disableFontScaling(component: any) {
+  if (component?.render) {
+    const original = component.render;
+    component.render = (props: any, ref: any) =>
+      original({ allowFontScaling: false, ...props }, ref);
+  }
+}
+disableFontScaling(Text);
+disableFontScaling(TextInput);
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
