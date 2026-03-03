@@ -2,9 +2,11 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { useEffect } from "react";
+import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { MobileWebFrame } from "@/components/MobileWebFrame";
 import { queryClient } from "@/lib/query-client";
 import { HSAProvider } from "@/contexts/HSAContext";
 import {
@@ -44,12 +46,19 @@ export default function RootLayout() {
     }
   }, [fontsLoaded]);
 
+  // On the top-level web window, hand off to the iframe wrapper.
+  // Inside the iframe window.self !== window.top, so the app renders normally
+  // with a true 393px viewport — exactly like DevTools iPhone 16 emulation.
+  if (Platform.OS === "web" && typeof window !== "undefined" && window.self === window.top) {
+    return <MobileWebFrame />;
+  }
+
   if (!fontsLoaded) return null;
 
   return (
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <GestureHandlerRootView>
+        <GestureHandlerRootView style={{ flex: 1 }}>
           <KeyboardProvider>
             <HSAProvider>
               <RootLayoutNav />
