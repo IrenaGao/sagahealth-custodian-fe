@@ -7,6 +7,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 
 import Colors from "@/constants/colors";
+import { isDesktopWebFrame } from "@/lib/platform";
 
 function NativeTabLayout() {
   return (

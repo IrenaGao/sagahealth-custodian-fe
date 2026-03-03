@@ -14,6 +14,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { router } from "expo-router";
 import Colors from "@/constants/colors";
+import { webTopInsetBase, webBottomPadding } from "@/lib/platform";
 import { useHSA, getLoyaltyTier } from "@/contexts/HSAContext";
 
 type MainCategory = "products" | "apps" | "services";
@@ -573,7 +574,7 @@ export default function MarketplaceScreen() {
   const [activeMain, setActiveMain] = useState<MainCategory>("products");
   const [activeSub, setActiveSub] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
-  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const webTopInset = Platform.OS === "web" ? webTopInsetBase : 0;
 
   const isSearching = searchQuery.trim().length > 0;
   const query = searchQuery.trim().toLowerCase();
@@ -652,7 +653,7 @@ export default function MarketplaceScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 : 100 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? webBottomPadding : undefined }]}
         contentInsetAdjustmentBehavior="automatic"
       >
         {isSearching ? (

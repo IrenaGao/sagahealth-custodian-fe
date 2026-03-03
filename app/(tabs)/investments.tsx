@@ -18,6 +18,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import Svg, { Path, Defs, LinearGradient as SvgGradient, Stop, Circle, Line, Text as SvgText } from "react-native-svg";
 import Colors from "@/constants/colors";
+import { webTopInsetBase, webBottomPadding } from "@/lib/platform";
 import { useHSA, type InvestmentHolding, PORTFOLIO_PRESETS } from "@/contexts/HSAContext";
 
 const ASSET_DETAILS: Record<string, { description: string; type: string; expenseRatio?: string; sector?: string }> = {
@@ -807,7 +808,7 @@ export default function InvestmentsScreen() {
     autoInvestEnabled,
     toggleAutoInvest,
   } = useHSA();
-  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const webTopInset = Platform.OS === "web" ? webTopInsetBase : 0;
   const [selectedPeriod, setSelectedPeriod] = useState<TimePeriod>("1M");
   const [selectedHolding, setSelectedHolding] = useState<InvestmentHolding | null>(null);
 
@@ -907,7 +908,7 @@ export default function InvestmentsScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 : 100 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? webBottomPadding : undefined }]}
         contentInsetAdjustmentBehavior="automatic"
       >
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(100).duration(500) : undefined}>

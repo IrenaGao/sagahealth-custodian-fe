@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useLocalSearchParams, router } from "expo-router";
 import Colors from "@/constants/colors";
+import { webTopInsetBase, webBottomPadding } from "@/lib/platform";
 import { useHSA, Receipt, LinkedCard, LinkedBankAccount, getLoyaltyTier, loyaltyTiers, LoyaltyTier } from "@/contexts/HSAContext";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 
@@ -2942,7 +2943,7 @@ export default function AccountsScreen() {
       }
     }
   }, [params.tab]);
-  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const webTopInset = Platform.OS === "web" ? webTopInsetBase : 0;
 
   const contributions = transactions.filter((t) => t.type === "contribution");
 
@@ -2951,7 +2952,7 @@ export default function AccountsScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 : 100 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? webBottomPadding : undefined }]}
         contentInsetAdjustmentBehavior="automatic"
       >
         <Text style={styles.title}>Account</Text>

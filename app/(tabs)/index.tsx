@@ -21,6 +21,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { router } from "expo-router";
 import Colors from "@/constants/colors";
+import { webTopInsetBase, webBottomPadding } from "@/lib/platform";
 import { useHSA, getLoyaltyTier } from "@/contexts/HSAContext";
 
 const sagaLogo = require("@/assets/images/saga-logo.png");
@@ -541,7 +542,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, loyaltyPoints, userName, hasCompletedOnboarding, isLoading } = useHSA();
   const loyalty = getLoyaltyTier(balance);
-  const webTopInset = Platform.OS === "web" ? 67 : 0;
+  const webTopInset = Platform.OS === "web" ? webTopInsetBase : 0;
   const greeting = useGreeting();
 
   useEffect(() => {
@@ -591,7 +592,7 @@ export default function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? 34 + 84 : 100 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? webBottomPadding : undefined }]}
         contentInsetAdjustmentBehavior="automatic"
       >
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(100).duration(500) : undefined}>
