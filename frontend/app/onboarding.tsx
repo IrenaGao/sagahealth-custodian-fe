@@ -9,6 +9,8 @@ import {
   TextInput,
   ActivityIndicator,
   Switch,
+  ToastAndroid,
+  // AlertIOS,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,6 +21,7 @@ import { router } from "expo-router";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import Colors from "@/constants/colors";
 import { useHSA } from "@/contexts/HSAContext";
+import { API_BASE_URL } from "../shared/constants";
 
 const TOTAL_STEPS = 12;
 
@@ -307,6 +310,18 @@ export default function OnboardingScreen() {
   const renderStep = () => {
     switch (step) {
       case 0:
+        // Connectivity test - uncomment to verify API connection during onboarding development
+        // console.log(`API_BASE_URL: ${API_BASE_URL}`);
+        // fetch(`${API_BASE_URL}/`).then(res => res.json()).then(data => {
+        //   console.log("API Response:", data);
+        //   if (Platform.OS === "android") {
+        //     ToastAndroid.show("API Connected Successfully!", ToastAndroid.SHORT);
+        //   } else if (Platform.OS === "ios") {
+        //     // AlertIOS.alert("API Connected Successfully!");
+        //   } else {
+        //     alert("API Connected Successfully!");
+        //   }
+        // }).catch(err => console.error("API Error:", err));
         return (
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Let's get started</Text>

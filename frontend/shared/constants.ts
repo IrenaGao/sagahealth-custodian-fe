@@ -1,0 +1,15 @@
+import Constants from "expo-constants"
+
+export const _API_PORT: string = "8000";
+
+// hostUri is e.g. "192.168.1.5:8081" in LAN mode or a tunnel hostname in tunnel mode.
+// For tunnel mode the hostname is external and won't have the FastAPI backend, so we
+// only use it when it looks like a local IP; otherwise fall back to localhost.
+const rawHost: string = Constants.expoConfig?.hostUri || "";
+const hostOnly: string = rawHost.includes(":") ? rawHost.split(":")[0] : rawHost;
+const isLocal = hostOnly === "localhost" || hostOnly === "127.0.0.1" || /^192\.168\./.test(hostOnly) || /^10\./.test(hostOnly);
+
+export const _API_HOST: string = isLocal ? hostOnly : "localhost";
+
+export const API_BASE_URL: string = `http://${_API_HOST}:${_API_PORT}`;
+

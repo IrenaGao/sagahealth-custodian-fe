@@ -8,19 +8,18 @@ A modern Health Savings Account (HSA) custodian app built with Expo React Native
 
 ```
 sagahealth-custodian/
-└── frontend/               # Expo React Native app + Express dev server
-    ├── app/                # File-based routes (Expo Router)
-    │   └── (tabs)/         # Bottom tab navigation screens
-    ├── components/         # Shared UI components
-    ├── constants/          # Theme colors, fonts, and constants
-    ├── contexts/           # React context providers
-    ├── lib/                # Utility functions and helpers
-    ├── server/             # Express dev server (proxies & static serving)
-    ├── shared/             # Shared types and database schema
-    └── assets/             # Images, fonts, and icons
+├── frontend/               # Expo React Native app + Express dev server
+│   ├── app/                # File-based routes (Expo Router)
+│   │   └── (tabs)/         # Bottom tab navigation screens
+│   ├── components/         # Shared UI components
+│   ├── constants/          # Theme colors, fonts, and constants
+│   ├── contexts/           # React context providers
+│   ├── lib/                # Utility functions and helpers
+│   ├── server/             # Express dev server (proxies & static serving)
+│   ├── shared/             # Shared types and database schema
+│   └── assets/             # Images, fonts, and icons
+└── backend/                # FastAPI service (Lynx API integration)
 ```
-
-> **Note:** A dedicated backend service is planned but not yet implemented. The `server/` directory currently serves as a lightweight Express development proxy. API routes should be registered in `server/routes.ts` under the `/api` prefix when backend development begins.
 
 ---
 
@@ -69,20 +68,29 @@ The app uses a forest green fintech theme inspired by the sage color palette:
 
 ## Backend
 
-> **Coming soon.** The backend service has not yet been implemented.
+The backend is a **FastAPI** (Python) service located in `backend/`. It handles all communication with the [Lynx API](https://docs.lynx-fh.com/reference/introduction). The Express server in `frontend/server/` proxies Lynx-related requests to this service.
 
-The `server/` directory contains a minimal Express server used during development for static file serving and proxying. When backend development begins:
+### Prerequisites
 
-- Register API routes in `frontend/server/routes.ts` under the `/api` prefix
-- Database schema is defined in `frontend/shared/schema.ts` (Drizzle ORM + PostgreSQL)
-- Run `npm run db:push` from `frontend/` to push the schema to your database
+- [Python](https://www.python.org/) 3.11+
+- [Poetry](https://python-poetry.org/)
 
-Planned backend responsibilities include:
-- User authentication and session management
-- HSA contribution and transaction tracking
-- Receipt and reimbursement processing
-- Investment account integration
-- Marketplace data and provider services
+### Setup
+
+```bash
+cd backend
+poetry install
+```
+
+### Running
+
+```bash
+# From frontend/ — starts Express (port 5000) + FastAPI (port 8000) together
+npm run dev
+
+# Or start FastAPI alone
+npm run api:dev
+```
 
 ---
 
@@ -117,15 +125,14 @@ DATABASE_URL=postgresql://user:password@host:5432/dbname
 
 ### Running Locally
 
-Run the dev server and Expo simultaneously (two terminals):
-
 ```bash
-# Terminal 1 — Express dev server (port 5000)
-npm run server:dev
-
-# Terminal 2 — Expo (port 8081)
-npm start
+npm run dev
 ```
+
+This starts all three services concurrently:
+- **Expo** dev server (port 8081)
+- **Express** dev server (port 5000)
+- **FastAPI** backend (port 8000)
 
 Then press:
 - `w` to open in a web browser
@@ -160,7 +167,9 @@ npm run db:push
 | Script | Description |
 |---|---|
 | `npm start` | Start Expo development server |
-| `npm run server:dev` | Start Express dev server (port 5000) |
+| `npm run dev` | Start Expo (8081) + Express (5000) + FastAPI (8000) concurrently |
+| `npm run server:dev` | Start Express dev server only (port 5000) |
+| `npm run api:dev` | Start FastAPI backend only (port 8000) |
 | `npm run expo:static:build` | Build static Expo web bundle |
 | `npm run server:build` | Bundle Express server with esbuild |
 | `npm run server:prod` | Run bundled production server |
