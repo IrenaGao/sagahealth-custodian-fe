@@ -113,12 +113,7 @@ Create a `.env.local` file in the `frontend/` directory:
 ```env
 # Database (required for db:push and backend features)
 DATABASE_URL=postgresql://user:password@host:5432/dbname
-
-# Automatically set on Replit — override locally if needed
-REPLIT_DEV_DOMAIN=localhost
 ```
-
-`EXPO_PUBLIC_DOMAIN` is set automatically by the `expo:dev` script. For local development it defaults to `localhost:5000`.
 
 ### Running Locally
 
@@ -129,12 +124,6 @@ Run the dev server and Expo simultaneously (two terminals):
 npm run server:dev
 
 # Terminal 2 — Expo (port 8081)
-npm run expo:dev
-```
-
-Or use the standard Expo start command without the dev server:
-
-```bash
 npm start
 ```
 
@@ -171,7 +160,6 @@ npm run db:push
 | Script | Description |
 |---|---|
 | `npm start` | Start Expo development server |
-| `npm run expo:dev` | Start Expo with Replit proxy configuration |
 | `npm run server:dev` | Start Express dev server (port 5000) |
 | `npm run expo:static:build` | Build static Expo web bundle |
 | `npm run server:build` | Bundle Express server with esbuild |
