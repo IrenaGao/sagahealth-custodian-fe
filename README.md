@@ -172,7 +172,6 @@ npm run db:push
 
 ## Deployment
 
-The project is configured for deployment on **Replit** (CloudRun target) and **Vercel**.
+The project is configured for deployment on **Vercel**.
 
-- Replit: workflows are defined in `.replit` — "Start App" runs the backend and frontend in parallel
 - Vercel: configuration is in `frontend/vercel.json`
