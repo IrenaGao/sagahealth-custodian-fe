@@ -29,6 +29,7 @@ COMMANDS = [
         ),
         "cwd": BACKEND,
         "shell": True,
+        "restart": True,
     },
 ]
 
@@ -53,6 +54,13 @@ def main() -> None:
 
     for spec in COMMANDS:
         interactive = spec.get("interactive", False)
+        # Isolate background processes from the console so that uvicorn's
+        # GenerateConsoleCtrlEvent(CTRL_C_EVENT, 0) on --reload doesn't
+        # propagate to run_dev.py or expo. CREATE_NO_WINDOW detaches from the
+        # shared console; CREATE_NEW_PROCESS_GROUP puts it in its own group.
+        flags = (subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW) if (
+            sys.platform == "win32" and not interactive
+        ) else 0
         proc = subprocess.Popen(
             spec["cmd"],
             cwd=spec["cwd"],
@@ -62,6 +70,7 @@ def main() -> None:
             stdin=None if interactive else subprocess.DEVNULL,
             text=True,
             bufsize=1,
+            creationflags=flags,
         )
         procs.append(proc)
         if not interactive:
@@ -96,15 +105,39 @@ def main() -> None:
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
-    # Exit if any process dies unexpectedly
+    # Monitor processes; auto-restart those with restart=True, shut down otherwise
     while True:
-        for proc, spec in zip(procs, COMMANDS):
+        for i, (proc, spec) in enumerate(zip(procs, COMMANDS)):
             if proc.poll() is not None:
-                print(
-                    f"{COLORS.get(spec['label'], '')}[{spec['label']}]{RESET}"
-                    f" exited with code {proc.returncode}"
-                )
-                shutdown(None, None)
+                label = spec["label"]
+                color = COLORS.get(label, "")
+                if spec.get("restart"):
+                    print(
+                        f"{color}[{label}]{RESET}"
+                        f" exited (code {proc.returncode}), restarting…"
+                    )
+                    new_proc = subprocess.Popen(
+                        spec["cmd"],
+                        cwd=spec["cwd"],
+                        shell=spec["shell"],
+                        stdout=subprocess.PIPE,
+                        stderr=subprocess.STDOUT,
+                        stdin=subprocess.DEVNULL,
+                        text=True,
+                        bufsize=1,
+                        creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW) if sys.platform == "win32" else 0,
+                    )
+                    procs[i] = new_proc
+                    t = threading.Thread(
+                        target=stream_output, args=(new_proc, label), daemon=True
+                    )
+                    t.start()
+                else:
+                    print(
+                        f"{color}[{label}]{RESET}"
+                        f" exited with code {proc.returncode}"
+                    )
+                    shutdown(None, None)
         threading.Event().wait(1)
 
 

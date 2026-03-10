@@ -10,20 +10,20 @@ class ClientOrg(BaseModel):
     # id: str | None = None
 
 class Address(BaseModel):
+    # typeDescription: str | None = None
+    name: str | None = None
+    # attentionCareOf: str | None = None
+    # line3: str | None = None
+    # line4: str | None = None
+    # pobox: str | None = None
+    # county: str | None = None
     line1: str | None = None
-    line2: str | None = None
+    # line2: str | None = None
     city: str | None = None
     stateProvince: str | None = None
     country: str | None = None
     postalCode: str | None = None
-    postalCodeExtension: str | None = None
-    typeDescription: str | None = None
-    name: str | None = None
-    attentionCareOf: str | None = None
-    # line3: str | None = None
-    # line4: str | None = None
-    pobox: str | None = None
-    county: str | None = None
+    # postalCodeExtension: str | None = None
     primaryIndicator: bool | None = None
 
 class Gender(str, Enum):
@@ -94,15 +94,15 @@ class SupportedLanguage(str, Enum):
     RUSSIAN = "ru_RU"
 
 class Email(BaseModel):
-    typeDescription: str | None = None
+    # typeDescription: str | None = None
     emailAddress: str | None = None
     primaryIndicator: bool | None = None
 
 class Phone(BaseModel):
-    typeDescription: str | None = None
     countryCode: str | None = None
     phoneNumber: str | None = None
-    phoneExtension: str | None = None
+    # phoneExtension: str | None = None
+    # typeDescription: str | None = None
     primaryIndicator: bool | None = None
 
 class MemberCardPreferences(BaseModel):
@@ -155,41 +155,43 @@ class Tag(BaseModel):
     value: str
     type: str | None = None
 
-
 class Member(BaseModel):
     clientMemberId: str
     clientOrg: ClientOrg
     dateOfBirth: str
-    gender: Gender
+    # gender: Gender | None = None
     healthPlanCoverageType: CoverageType
     firstName: str
     lastName: str
     middleName: str | None = None
-    namePrefix: str | None = None
-    nameSuffix: str | None = None
-    preferredGenderPronoun: GenderPronoun = Field(default_factory=lambda data: assume_pronoun(data["gender"]))
-    race: Race
-    religion: Religion = Religion.NONDISCLOSED
-    maritalStatus: MaritalStatus = MaritalStatus.UNKNOWN
-    usTaxpayerIndicator: bool | None = None
-    countryOfCitizenship: str | None = None
-    ssn: str | None = None
-    passport: str | None = None
+    # namePrefix: str | None = None
+    # nameSuffix: str | None = None
+    # preferredGenderPronoun: GenderPronoun | None = None
+    # race: Race | None = None
+    # religion: Religion | None = None
+    # maritalStatus: MaritalStatus | None = None
+    # usTaxpayerIndicator: bool | None = None
+    # countryOfCitizenship: str | None = None
+    # ssn: str | None = None
+    ssn: str
+    # passport: str | None = None
     language: SupportedLanguage = SupportedLanguage.ENGLISH
     addresses: list[Address] | None = None
     emails: list[Email] | None = None
     phones: list[Phone] | None = None
     memberCardPreferences: MemberCardPreferences | None = None
     memberProducts: list[MemberProduct] | None = None
-    memberPlanBenefitPackage: MemberPlanBenefitPackage | None = None
+    # memberPlanBenefitPackage: MemberPlanBenefitPackage | None = None
     memberConsents: list[MemberConsent] | None = None
     tags: list[Tag] | None = None
 
-    @model_validator(mode="after")
-    def validate_identification(self):
-        if not self.ssn and not self.passport:
-            raise ValueError("At least one of SSN or passport must be provided")
-        return self
+    # @model_validator(mode="after")
+    # def validate_identification(self):
+    #     # if not self.ssn and not self.passport:
+    #     if not self.ssn:
+    #         # raise ValueError("At least one of SSN or passport must be provided")
+    #         raise ValueError("SSN must be provided")
+    #     return self
     
     @field_validator("emails", mode="before")
     @classmethod

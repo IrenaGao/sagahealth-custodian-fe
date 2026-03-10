@@ -121,8 +121,8 @@ export default function OnboardingScreen() {
   const [state, setState] = useState("");
   const [zip, setZip] = useState("");
 
-  const [gender, setGender] = useState<string | null>(null);
-  const [race, setRace] = useState<string | null>(null);
+  // const [gender, setGender] = useState<string | null>(null);
+  // const [race, setRace] = useState<string | null>(null);
 
   const [planType, setPlanType] = useState<"individual" | "family" | null>(null);
   const [spouseOver55, setSpouseOver55] = useState(false);
@@ -193,9 +193,9 @@ export default function OnboardingScreen() {
           firstName: firstName.trim() || null,
           lastName: lastName.trim() || null,
           dateOfBirth: dob.trim() || null,
-          gender: gender,
+          // gender: gender,
           healthPlanCoverageType: planType === "individual" ? "Individual" : planType === "family" ? "Family" : null,
-          race: race,
+          // race: race,
           ssn: ssn.replace(/\D/g, "") || null,
           addresses: street.trim() ? [{
             line1: street.trim(),
@@ -205,13 +205,13 @@ export default function OnboardingScreen() {
             primaryIndicator: true,
           }] : null,
           emails: [{
+            // typeDescription: "Personal",
             emailAddress: email.trim(),
-            typeDescription: "Personal",
             primaryIndicator: true,
           }],
           phones: [{
+            // typeDescription: "Personal",
             phoneNumber: phone.replace(/\D/g, ""),
-            typeDescription: "Personal",
             primaryIndicator: true,
           }],
         },
@@ -474,7 +474,7 @@ export default function OnboardingScreen() {
                 <TextInput style={styles.input} value={zip} onChangeText={(t) => setZip(t)} placeholder="90210" placeholderTextColor={Colors.light.textMuted} keyboardType="number-pad" maxLength={5} autoComplete="off" />
               </View>
             </View>
-            <View style={styles.questionSection}>
+            {/* <View style={styles.questionSection}>
               <Text style={styles.questionLabel}>Gender</Text>
               <View style={styles.optionsWrap}>
                 {(["Male", "Female", "Non-binary", "Non-Disclosed", "Other"] as const).map((opt) => (
@@ -507,7 +507,7 @@ export default function OnboardingScreen() {
                   </Pressable>
                 ))}
               </View>
-            </View>
+            </View> */}
           </View>
         );
 
