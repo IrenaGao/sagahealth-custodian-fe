@@ -30,21 +30,18 @@ async def root():
 
 
 async def lynx_member_enroll(payload: EnrollmentPayload):
+    url = "/".join([settings.LYNX_API_BASE_URL, *(LYNX_ROUTES["member_enroll"])])
     async with httpx.AsyncClient() as client:
         response = None
         try:
             logger.info(
-                f"Sending enrollment to Lynx API at {settings.LYNX_API_BASE_URL} with payload:\n{pformat(payload.model_dump())}"
+                f"Sending enrollment to Lynx API to {url} with payload:\n{pformat(payload.model_dump())}"
             )
-            url_parts = [settings.LYNX_API_BASE_URL, *(LYNX_ROUTES["member_enroll"])]
-            logger.info(str(url_parts))
-            url = "/".join(url_parts)
             headers = {
                 "Accept": "application/json",
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {settings.LYNX_AUTH_TOKEN}"
             }
-            logger.info(f"Requesting from {url} w/ headers:\n{pformat(headers)}")
             response = await client.post(
                 url,
                 json=payload.model_dump(),
@@ -55,18 +52,20 @@ async def lynx_member_enroll(payload: EnrollmentPayload):
             )
             response.raise_for_status()
             logger.info("Successfully enrolled member in Lynx")
-        except httpx.HTTPError as exc:
-            logger.error(f"An error occurred while sending enrollment to Lynx: {exc}")
+        except Exception:
+            logger.exception(f"An error occurred while sending enrollment to Lynx.")
             return {"error": "Failed to enroll member in Lynx"}
         return (
             response.json()
             if response
-            else {"error": "Failed to enroll member in Lynx"}
+            else {"error": "Failed to enroll member in Lynx"}  # this shouldn't happen hopefully, or else it fails silently.
         )
 
 
 @app.post("/enroll")
 async def enroll(payload: EnrollmentPayload):
-    # forward the enrollment payload to the Lynx API
-    logger.info(f"Received enrollment payload:\n{pformat(payload.model_dump())}")
-    return await lynx_member_enroll(payload)
+    # Do any pre-lynx business logic here
+    lynx_response = await lynx_member_enroll(payload)
+    # Do any post lynx response business logic here
+    return lynx_response
+

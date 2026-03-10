@@ -13,3 +13,13 @@ export const _API_HOST: string = isLocal ? hostOnly : "localhost";
 
 export const API_BASE_URL: string = `http://${_API_HOST}:${_API_PORT}`;
 
+// Hardcoded values for Lynx API enrollment (matching Postman sandbox config)
+export const HARDCODED_MEMBER_CARD_PLAN_NAME = "Saga Sandbox MHH1";
+export const HARDCODED_MEMBER_CARD_PACKAGE_NAME = "Test Package4";
+export const HARDCODED_MEMBER_PRODUCT_NAME = "HSA_01"
+export const HARDCODED_PHONE_COUNTRY_CODE = "1";
+export const HARDCODED_ADDRESS_COUNTRY = "US";
+export const HARDCODED_CLIENT_ORG = {
+  "name": "Saga_Sandbox"
+}
+

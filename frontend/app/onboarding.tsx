@@ -22,7 +22,15 @@ import { router } from "expo-router";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import Colors from "@/constants/colors";
 import { useHSA } from "@/contexts/HSAContext";
-import { API_BASE_URL } from "../shared/constants";
+import {
+  API_BASE_URL,
+  HARDCODED_MEMBER_CARD_PLAN_NAME,
+  HARDCODED_MEMBER_CARD_PACKAGE_NAME,
+  HARDCODED_PHONE_COUNTRY_CODE,
+  HARDCODED_ADDRESS_COUNTRY,
+  HARDCODED_MEMBER_PRODUCT_NAME,
+  HARDCODED_CLIENT_ORG,
+} from "../shared/constants";
 
 const TOTAL_STEPS = 12;
 
@@ -68,12 +76,13 @@ const AVAILABLE_TICKERS = [
   { ticker: "JNJ", name: "Johnson & Johnson", type: "stock" },
 ];
 
-// TODO: Development defaults - remove before production release
-const _CLIENT_MEMBER_ID = "3f50436491";
-const _CLIENT_ORG = {
-  "name": "Health_Plan_ABC_Division"
+// from: https://stackoverflow.com/questions/23593052/format-javascript-date-as-yyyy-mm-dd
+function formatDate(date: Date) {
+    const month = ('' + (date.getMonth() + 1)).padStart(2, "0")
+    const day = ('' + date.getDate()).padStart(2, "0")
+    const year = date.getFullYear();
+    return [year, month, day].join('-');
 }
-
 
 
 function formatDob(text: string): string {
@@ -105,9 +114,6 @@ export default function OnboardingScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
 
   const idempotencyKey = useMemo(() => ExpoCrypto.randomUUID(), []);
-
-  const [clientMemberId, setClientMemberId] = useState(_CLIENT_MEMBER_ID);
-  const [clientOrg, setClientOrg] = useState(_CLIENT_ORG);
 
   const [step, setStep] = useState(0);
 
@@ -191,11 +197,17 @@ export default function OnboardingScreen() {
     const payload = {
       data: {
         member: {
-          clientMemberId: clientMemberId,
-          clientOrg: clientOrg,
+          clientMemberId: ExpoCrypto.randomUUID(),
+          clientOrg: HARDCODED_CLIENT_ORG,
           firstName: firstName.trim() || null,
           lastName: lastName.trim() || null,
-          dateOfBirth: dob.trim() || null,
+          dateOfBirth: (() => {
+            const parts = dob.trim().split("/");
+            if (parts.length === 3 && parts[2].length === 4) {
+              return `${parts[2]}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}`;
+            }
+            return null;
+          })(),
           // gender: gender,
           healthPlanCoverageType: planType === "individual" ? "Individual" : planType === "family" ? "Family" : null,
           // race: race,
@@ -204,6 +216,7 @@ export default function OnboardingScreen() {
             line1: street.trim(),
             city: city.trim() || null,
             stateProvince: state.trim() || null,
+            country: HARDCODED_ADDRESS_COUNTRY,
             postalCode: zip.trim() || null,
             primaryIndicator: true,
           }] : null,
@@ -214,9 +227,22 @@ export default function OnboardingScreen() {
           }],
           phones: [{
             // typeDescription: "Personal",
+            countryCode: HARDCODED_PHONE_COUNTRY_CODE,
             phoneNumber: phone.replace(/\D/g, ""),
             primaryIndicator: true,
           }],
+          memberCardPreferences: {
+            planName: HARDCODED_MEMBER_CARD_PLAN_NAME,
+            cardPackageName: HARDCODED_MEMBER_CARD_PACKAGE_NAME,
+          },
+          memberProducts: [
+            {
+              effectiveDate: formatDate(new Date()),
+              product: {
+                name: HARDCODED_MEMBER_PRODUCT_NAME
+              }
+            }
+          ]
         },
       },
       idempotency: {
