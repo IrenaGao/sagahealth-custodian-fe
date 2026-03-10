@@ -40,9 +40,9 @@ async def lynx_member_enroll(payload: EnrollmentPayload):
             logger.info(str(url_parts))
             url = "/".join(url_parts)
             headers = {
-                "accept": "application/json",
-                "content-type": "application/json",
-                "authorization": settings.LYNX_AUTH_TOKEN
+                "Accept": "application/json",
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {settings.LYNX_AUTH_TOKEN}"
             }
             logger.info(f"Requesting from {url} w/ headers:\n{pformat(headers)}")
             response = await client.post(

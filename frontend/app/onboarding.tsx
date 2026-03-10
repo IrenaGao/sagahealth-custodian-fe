@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import * as ExpoCrypto from "expo-crypto";
 import {
   StyleSheet,
   Text,
@@ -102,6 +103,8 @@ export default function OnboardingScreen() {
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const bottomPad = Platform.OS === "web" ? 34 : 16;
   const scrollViewRef = useRef<ScrollView>(null);
+
+  const idempotencyKey = useMemo(() => ExpoCrypto.randomUUID(), []);
 
   const [clientMemberId, setClientMemberId] = useState(_CLIENT_MEMBER_ID);
   const [clientOrg, setClientOrg] = useState(_CLIENT_ORG);
@@ -217,7 +220,7 @@ export default function OnboardingScreen() {
         },
       },
       idempotency: {
-        idempotencyKey: null,
+        idempotencyKey: idempotencyKey,
       },
       // TODO: map these fields to the EnrollmentPayload schema
       // spouse_over_55: spouseOver55,
