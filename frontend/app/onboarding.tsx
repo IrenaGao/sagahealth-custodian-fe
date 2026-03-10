@@ -176,6 +176,62 @@ export default function OnboardingScreen() {
   }, [step]);
 
 
+  const finalizeOnboarding = async () => {
+    const portfolioChoice =
+      useCustomTickers && customTickerTotal === 100
+        ? { custom_tickers: customTickerSelections }
+        : { portfolio_index: portfolioIndex };
+
+    const payload = {
+      client_member_id: clientMemberId,
+      client_org: clientOrg,
+      first_name: firstName.trim() || null,
+      last_name: lastName.trim() || null,
+      email: email.trim() || null,
+      phone: phone.trim() || null,
+      dob: dob.trim() || null,
+      ssn: ssn.trim() || null,
+      address: {
+        street: street.trim() || null,
+        city: city.trim() || null,
+        state: state.trim() || null,
+        zip: zip.trim() || null,
+      },
+      plan_type: planType,
+      spouse_over_55: spouseOver55,
+      employment_status: employmentStatus,
+      irs_withholding_backup: irsWithholdingBackup,
+      director_of_public_company: directorOfPublicCompany,
+      director_stock_ticker: directorStockTicker.trim() || null,
+      politically_exposed: politicallyExposed,
+      pep_full_name: pepFullName.trim() || null,
+      broker_dealer_affiliate: brokerDealerAffiliate,
+      contribution_amount: contributionAmount,
+      frequency: frequency,
+      auto_invest: autoInvest,
+      invest_percent: investPercent,
+      ...portfolioChoice,
+    };
+
+    try {
+      await fetch(`${API_BASE_URL}/enroll`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+    } catch (err) {
+      console.error("Enrollment API error:", err);
+    }
+
+    completeOnboarding(
+      firstName.trim() || undefined,
+      useCustomTickers && customTickerTotal === 100 ? undefined : portfolioIndex,
+      useCustomTickers && customTickerTotal === 100 ? customTickerSelections : undefined
+    );
+    if (autoInvest) toggleAutoInvest();
+    router.replace("/(tabs)");
+  };
+
   const goNext = () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (step === 11) {
@@ -183,13 +239,7 @@ export default function OnboardingScreen() {
         setInvestmentConfirmed(true);
         return;
       }
-      completeOnboarding(
-        firstName.trim(),
-        useCustomTickers && customTickerTotal === 100 ? undefined : portfolioIndex,
-        useCustomTickers && customTickerTotal === 100 ? customTickerSelections : undefined
-      );
-      if (autoInvest) toggleAutoInvest();
-      router.replace("/(tabs)");
+      finalizeOnboarding();
       return;
     }
     setStep(step + 1);
@@ -202,8 +252,7 @@ export default function OnboardingScreen() {
 
   const handleSkip = () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    completeOnboarding(firstName.trim() || undefined);
-    router.replace("/(tabs)");
+    finalizeOnboarding();
   };
 
   const handleBankSelect = (bankId: string) => {
