@@ -2952,7 +2952,7 @@ export default function AccountsScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? webBottomPadding : undefined }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? webBottomPadding : Platform.OS === "android" ? insets.bottom * 2.8 : undefined }]}
         contentInsetAdjustmentBehavior="automatic"
       >
         <Text style={styles.title}>Account</Text>
