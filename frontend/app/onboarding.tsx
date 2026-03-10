@@ -67,6 +67,13 @@ const AVAILABLE_TICKERS = [
   { ticker: "JNJ", name: "Johnson & Johnson", type: "stock" },
 ];
 
+// TODO: Development defaults - remove before production release
+const _CLIENT_MEMBER_ID = "3f50436491";
+const _CLIENT_ORG = {
+  "name": "Health_Plan_ABC_Division"
+}
+
+
 
 function formatDob(text: string): string {
   const digits = text.replace(/\D/g, "").slice(0, 8);
@@ -95,6 +102,9 @@ export default function OnboardingScreen() {
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const bottomPad = Platform.OS === "web" ? 34 : 16;
   const scrollViewRef = useRef<ScrollView>(null);
+
+  const [clientMemberId, setClientMemberId] = useState(_CLIENT_MEMBER_ID);
+  const [clientOrg, setClientOrg] = useState(_CLIENT_ORG);
 
   const [step, setStep] = useState(0);
 
