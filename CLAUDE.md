@@ -5,7 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 SagaHealth Custodian is an HSA (Health Savings Account) custodian app. It is a monorepo with:
-- **`frontend/`** — Expo React Native app with an Express dev server
+- **`frontend/`** — Expo React Native app
 - **`backend/`** — Python FastAPI app (in active development)
 
 ## Commands
@@ -13,14 +13,12 @@ SagaHealth Custodian is an HSA (Health Savings Account) custodian app. It is a m
 ### Frontend (`frontend/`)
 
 ```bash
-npm run dev               # Start Expo (8081) + Express (5000) + FastAPI (8000) concurrently
-npm run server:dev        # Start Express dev server only (port 5000)
+python ../run_dev.py      # Start Expo (8081) + FastAPI (8000) concurrently
+npm run dev               # Alias for the above (calls run_dev.py)
 npm run api:dev           # Start FastAPI backend only (port 8000)
 npm run lint              # Run ESLint
 npm run lint:fix          # Auto-fix lint issues
 npm run db:push           # Push Drizzle schema to PostgreSQL
-npm run server:build      # Bundle Express server with esbuild
-npm run server:prod       # Run bundled production server
 ```
 
 Run a single lint check on a file:
@@ -45,7 +43,6 @@ poetry run pytest -k "test_name"     # Run a single test by name
 - **Routing**: Expo Router v6 (file-based). Routes live in `frontend/app/`. Tab screens are under `app/(tabs)/`.
 - **State**: React Context (`frontend/contexts/HSAContext`) for global app state; TanStack React Query v5 for server data fetching.
 - **Database**: Drizzle ORM with PostgreSQL. Schema is in `frontend/shared/schema.ts`. Requires `DATABASE_URL` env var.
-- **Express server**: `frontend/server/` is a thin Express app used in development and production (Vercel SPA). It proxies requests and serves the static Expo web export. Routes registered in `server/routes.ts`. Requests to the Lynx API are forwarded to the Python backend (`backend/`), which handles all Lynx API communication. Lynx API docs: `https://docs.lynx-fh.com/reference/introduction`.
 - **Design system**: Forest green theme. Colors and typography constants in `frontend/constants/`.
 - **Path aliases**: `@/*` → `frontend/*`, `@shared/*` → `frontend/shared/*`
 
@@ -60,5 +57,3 @@ poetry run pytest -k "test_name"     # Run a single test by name
 | Variable | Used By | Description |
 |---|---|---|
 | `DATABASE_URL` | Frontend (Drizzle) | PostgreSQL connection string |
-| `PORT` | Express server | Server port (default 5000) |
-| `NODE_ENV` | Express server | `development` or `production` |

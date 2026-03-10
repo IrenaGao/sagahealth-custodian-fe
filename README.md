@@ -8,14 +8,13 @@ A modern Health Savings Account (HSA) custodian app built with Expo React Native
 
 ```
 sagahealth-custodian/
-├── frontend/               # Expo React Native app + Express dev server
+├── frontend/               # Expo React Native app
 │   ├── app/                # File-based routes (Expo Router)
 │   │   └── (tabs)/         # Bottom tab navigation screens
 │   ├── components/         # Shared UI components
 │   ├── constants/          # Theme colors, fonts, and constants
 │   ├── contexts/           # React context providers
 │   ├── lib/                # Utility functions and helpers
-│   ├── server/             # Express dev server (proxies & static serving)
 │   ├── shared/             # Shared types and database schema
 │   └── assets/             # Images, fonts, and icons
 └── backend/                # FastAPI service (Lynx API integration)
@@ -68,7 +67,7 @@ The app uses a forest green fintech theme inspired by the sage color palette:
 
 ## Backend
 
-The backend is a **FastAPI** (Python) service located in `backend/`. It handles all communication with the [Lynx API](https://docs.lynx-fh.com/reference/introduction). The Express server in `frontend/server/` proxies Lynx-related requests to this service.
+The backend is a **FastAPI** (Python) service located in `backend/`. It handles all communication with the [Lynx API](https://docs.lynx-fh.com/reference/introduction).
 
 ### Prerequisites
 
@@ -85,7 +84,10 @@ poetry install
 ### Running
 
 ```bash
-# From frontend/ — starts Express (port 5000) + FastAPI (port 8000) together
+# From project root — starts Expo (8081) + FastAPI (8000) together
+python run_dev.py
+
+# Or via npm (from frontend/)
 npm run dev
 
 # Or start FastAPI alone
@@ -126,12 +128,15 @@ DATABASE_URL=postgresql://user:password@host:5432/dbname
 ### Running Locally
 
 ```bash
+# From project root
+python run_dev.py
+
+# Or from frontend/
 npm run dev
 ```
 
-This starts all three services concurrently:
+This starts both services concurrently:
 - **Expo** dev server (port 8081)
-- **Express** dev server (port 5000)
 - **FastAPI** backend (port 8000)
 
 Then press:
@@ -139,19 +144,6 @@ Then press:
 - `i` to open in iOS Simulator
 - `a` to open in Android Emulator
 - Scan the QR code with [Expo Go](https://expo.dev/go) to run on a physical device
-
-### Production Build
-
-```bash
-# 1. Build the static Expo web bundle
-npm run expo:static:build
-
-# 2. Bundle the Express server
-npm run server:build
-
-# 3. Run the production server
-npm run server:prod
-```
 
 ### Database
 
@@ -167,12 +159,10 @@ npm run db:push
 | Script | Description |
 |---|---|
 | `npm start` | Start Expo development server |
-| `npm run dev` | Start Expo (8081) + Express (5000) + FastAPI (8000) concurrently |
-| `npm run server:dev` | Start Express dev server only (port 5000) |
+| `python run_dev.py` | Start Expo (8081) + FastAPI (8000) concurrently |
+| `npm run dev` | Alias for `python run_dev.py` (run from `frontend/`) |
 | `npm run api:dev` | Start FastAPI backend only (port 8000) |
 | `npm run expo:static:build` | Build static Expo web bundle |
-| `npm run server:build` | Bundle Express server with esbuild |
-| `npm run server:prod` | Run bundled production server |
 | `npm run db:push` | Push Drizzle schema to database |
 | `npm run lint` | Run ESLint |
 | `npm run lint:fix` | Auto-fix linting issues |
