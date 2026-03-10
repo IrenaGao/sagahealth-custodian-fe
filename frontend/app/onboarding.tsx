@@ -121,6 +121,9 @@ export default function OnboardingScreen() {
   const [state, setState] = useState("");
   const [zip, setZip] = useState("");
 
+  const [gender, setGender] = useState<string | null>(null);
+  const [race, setRace] = useState<string | null>(null);
+
   const [planType, setPlanType] = useState<"individual" | "family" | null>(null);
   const [spouseOver55, setSpouseOver55] = useState(false);
 
@@ -190,9 +193,9 @@ export default function OnboardingScreen() {
           firstName: firstName.trim() || null,
           lastName: lastName.trim() || null,
           dateOfBirth: dob.trim() || null,
-          gender: null,
+          gender: gender,
           healthPlanCoverageType: planType === "individual" ? "Individual" : planType === "family" ? "Family" : null,
-          race: null,
+          race: race,
           ssn: ssn.replace(/\D/g, "") || null,
           addresses: street.trim() ? [{
             line1: street.trim(),
@@ -201,16 +204,16 @@ export default function OnboardingScreen() {
             postalCode: zip.trim() || null,
             primaryIndicator: true,
           }] : null,
-          emails: email.trim() ? [{
+          emails: [{
             emailAddress: email.trim(),
             typeDescription: "Personal",
             primaryIndicator: true,
-          }] : null,
-          phones: phone.trim() ? [{
+          }],
+          phones: [{
             phoneNumber: phone.replace(/\D/g, ""),
             typeDescription: "Personal",
             primaryIndicator: true,
-          }] : null,
+          }],
         },
       },
       idempotency: {
@@ -233,11 +236,16 @@ export default function OnboardingScreen() {
     };
 
     try {
-      await fetch(`${API_BASE_URL}/enroll`, {
+      const resp = await fetch(`${API_BASE_URL}/enroll`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+      if (!resp.ok) {
+        const errorText = await resp.text();
+        console.error("Enrollment API error:", resp.status, errorText);
+        throw new Error(`[${resp.status}] ${errorText}`);
+      }
     } catch (err) {
       console.error("Enrollment API error:", err);
     }
@@ -464,6 +472,40 @@ export default function OnboardingScreen() {
               <View style={[styles.formGroup, { width: 100 }]}>
                 <Text style={styles.inputLabel}>Zip</Text>
                 <TextInput style={styles.input} value={zip} onChangeText={(t) => setZip(t)} placeholder="90210" placeholderTextColor={Colors.light.textMuted} keyboardType="number-pad" maxLength={5} autoComplete="off" />
+              </View>
+            </View>
+            <View style={styles.questionSection}>
+              <Text style={styles.questionLabel}>Gender</Text>
+              <View style={styles.optionsWrap}>
+                {(["Male", "Female", "Non-binary", "Non-Disclosed", "Other"] as const).map((opt) => (
+                  <Pressable
+                    key={opt}
+                    style={[styles.optionPill, gender === opt && styles.optionPillActive]}
+                    onPress={() => {
+                      if (Platform.OS !== "web") Haptics.selectionAsync();
+                      setGender(opt);
+                    }}
+                  >
+                    <Text style={[styles.optionPillText, gender === opt && styles.optionPillTextActive]}>{opt}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            <View style={styles.questionSection}>
+              <Text style={styles.questionLabel}>Race</Text>
+              <View style={styles.optionsWrap}>
+                {(["American Indian or Alaska Native", "Asian", "Native Hawaiian or Other Pacific Islander", "White", "Other Race"] as const).map((opt) => (
+                  <Pressable
+                    key={opt}
+                    style={[styles.optionPill, race === opt && styles.optionPillActive]}
+                    onPress={() => {
+                      if (Platform.OS !== "web") Haptics.selectionAsync();
+                      setRace(opt);
+                    }}
+                  >
+                    <Text style={[styles.optionPillText, race === opt && styles.optionPillTextActive]}>{opt}</Text>
+                  </Pressable>
+                ))}
               </View>
             </View>
           </View>

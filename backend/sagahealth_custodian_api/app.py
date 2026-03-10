@@ -21,6 +21,6 @@ async def root():
 
 @app.post("/enroll")
 async def enroll(payload: EnrollmentPayload):
-    print(f"Enrollment received for member: {payload.clientMemberId}")
+    print(f"Enrollment received for member: {payload.data.member.clientMemberId}")
     print(f"Payload: {payload.model_dump_json(indent=2)}")
-    return {"status": "ok", "client_member_id": payload.clientMemberId}
+    return {"status": "ok", "client_member_id": payload.data.member.clientMemberId}

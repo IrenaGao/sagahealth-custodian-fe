@@ -167,7 +167,7 @@ class Member(BaseModel):
     middleName: str | None = None
     namePrefix: str | None = None
     nameSuffix: str | None = None
-    preferredGenderPronoun: GenderPronoun = Field(default_factory=lambda data: assume_pronoun(Gender[data["gender"]]))
+    preferredGenderPronoun: GenderPronoun = Field(default_factory=lambda data: assume_pronoun(data["gender"]))
     race: Race
     religion: Religion = Religion.NONDISCLOSED
     maritalStatus: MaritalStatus = MaritalStatus.UNKNOWN
@@ -197,6 +197,7 @@ class Member(BaseModel):
         # At least one email is required
         if not emails or len(emails) == 0:
             raise ValueError("At least one email is required")
+        return emails
     
     @field_validator("phones", mode="before")
     @classmethod
@@ -204,6 +205,7 @@ class Member(BaseModel):
         # At least one phone number is required
         if not phones or len(phones) == 0:
             raise ValueError("At least one phone number is required")
+        return phones
 
 class Enrollment(BaseModel):
     member: Member
