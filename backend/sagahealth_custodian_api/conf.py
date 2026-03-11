@@ -1,6 +1,9 @@
 import pathlib
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+class LynxSettings(BaseSettings):
+    pass
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=pathlib.Path(__file__).parent.parent.parent / ".env",

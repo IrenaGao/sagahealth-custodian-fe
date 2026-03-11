@@ -5,7 +5,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .util import get_basic_logger
-from .models import EnrollmentPayload
+from .models import EnrollmentPayload, UserRegistration, UserEnrollmentPayload
+from .db.models import User
 from .conf import settings
 
 logger = get_basic_logger(__name__)
@@ -61,11 +62,16 @@ async def lynx_member_enroll(payload: EnrollmentPayload):
             else {"error": "Failed to enroll member in Lynx"}  # this shouldn't happen hopefully, or else it fails silently.
         )
 
+async def register_user(user_info: UserRegistration):
+    session
+
 
 @app.post("/enroll")
-async def enroll(payload: EnrollmentPayload):
+async def enroll(payload: UserEnrollmentPayload):
+    # TODO: async these in a reasonable way.
     # Do any pre-lynx business logic here
-    lynx_response = await lynx_member_enroll(payload)
+    lynx_response = await lynx_member_enroll(payload.enrollment)
     # Do any post lynx response business logic here
+    registration_result = await register_user(payload.user_info)
     return lynx_response
 

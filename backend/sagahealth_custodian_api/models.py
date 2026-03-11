@@ -223,3 +223,12 @@ class EnrollmentPayload(BaseModel):
 
     data: Enrollment
     idempotency: Idempotency
+
+class UserRegistration(BaseModel):
+    email: str
+    password: str
+    member_id: str
+
+class UserEnrollmentPayload(BaseModel):
+    enrollment: EnrollmentPayload
+    user_info: UserRegistration
