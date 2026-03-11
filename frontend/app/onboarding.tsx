@@ -110,7 +110,7 @@ function formatPhone(text: string): string {
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
-  const { completeOnboarding, toggleAutoInvest } = useHSA();
+  const { completeOnboarding, toggleAutoInvest, login } = useHSA();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const bottomPad = Platform.OS === "web" ? 34 : 16;
   const scrollViewRef = useRef<ScrollView>(null);
@@ -310,6 +310,11 @@ export default function OnboardingScreen() {
       clientMemberId
     );
     if (autoInvest) toggleAutoInvest();
+    try {
+      await login(email.trim(), password);
+    } catch (e) {
+      console.warn("Auto-login after enrollment failed:", e);
+    }
     router.replace("/(tabs)");
   };
 

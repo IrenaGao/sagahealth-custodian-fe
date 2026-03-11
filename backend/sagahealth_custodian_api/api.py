@@ -2,10 +2,11 @@ from pprint import pformat
 from typing import Iterable, Annotated, Any, cast
 import httpx
 import bcrypt
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, insert, update, delete
 
+from .auth import get_current_user
 from .db.database import get_db_session
 from .db.models import User
 from .models import EnrollmentPayload, UserRegistration, UserEnrollmentPayload, UserDeletePayload
@@ -72,7 +73,7 @@ async def enroll_lynx_member(payload: EnrollmentPayload):
     return await lynx_req(Method.POST, "member_enroll", payload=payload.model_dump())
 
 async def register_saga_user(user_info: UserRegistration, session: Annotated[AsyncSession, Depends(get_db_session)]):
-    password_hash = bcrypt.hashpw(user_info.password.encode('utf-8'), bcrypt.gensalt(rounds=16))
+    password_hash = bcrypt.hashpw(user_info.password.encode('utf-8'), bcrypt.gensalt(rounds=16)).decode('utf-8')
     await session.execute(
         insert(User).values(
             email=user_info.email,
@@ -95,7 +96,13 @@ async def enroll(payload: UserEnrollmentPayload, session: Annotated[AsyncSession
 
 
 @router.delete("/member")
-async def delete_member(payload: UserDeletePayload, session: Annotated[AsyncSession, Depends(get_db_session)]):
+async def delete_member(
+    payload: UserDeletePayload,
+    current_user: Annotated[User, Depends(get_current_user)],
+    session: Annotated[AsyncSession, Depends(get_db_session)],
+):
+    if current_user.lynx_member_id != payload.clientMemberId:
+        raise HTTPException(403, "Cannot delete another user's account")
     async with session.begin():
         await delete_saga_user(payload, session)
         await delete_lynx_member(payload)

@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "@shared/constants";
 
 export interface Transaction {
   id: string;
@@ -100,6 +101,9 @@ export interface HSAContextValue {
   totalUnreimbursed: number;
   linkedCards: LinkedCard[];
   linkedBankAccounts: LinkedBankAccount[];
+  sessionToken: string | null;
+  userEmail: string | null;
+  mfaEnabled: boolean;
   addLinkedCard: (card: Omit<LinkedCard, "id">) => void;
   removeLinkedCard: (cardId: string) => void;
   setDefaultCard: (cardId: string) => void;
@@ -120,7 +124,11 @@ export interface HSAContextValue {
   sellProportional: (amount: number) => boolean;
   updatePortfolioMix: (newAllocations: { id: string; allocation: number }[]) => void;
   applyPortfolioPreset: (index: number) => void;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ mfaRequired: boolean; preAuthToken?: string }>;
+  verifyMfa: (preAuthToken: string, code: string) => Promise<void>;
+  logout: () => Promise<void>;
+  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
+  setMfaEnabled: (enabled: boolean) => void;
 }
 
 const HSAContext = createContext<HSAContextValue | null>(null);
@@ -188,6 +196,9 @@ export function HSAProvider({ children }: { children: ReactNode }) {
   const [userName, setUserName] = useState("");
   const [memberId, setMemberId] = useState("");
   const [portfolioIndex, setPortfolioIndex] = useState(2);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [mfaEnabled, setMfaEnabled] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -211,6 +222,14 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       if (typeof data.portfolioIndex === "number" && data.portfolioIndex >= 0 && data.portfolioIndex <= 4) {
         setPortfolioIndex(data.portfolioIndex as number);
       }
+    }
+    try {
+      const storedToken = await AsyncStorage.getItem("saga_session_token");
+      const storedEmail = await AsyncStorage.getItem("saga_user_email");
+      if (storedToken) setSessionToken(storedToken);
+      if (storedEmail) setUserEmail(storedEmail);
+    } catch (e) {
+      console.warn("Failed to load session from storage:", e);
     }
     setIsLoading(false);
   };
@@ -551,12 +570,79 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     });
   };
 
+  const login = async (email: string, password: string): Promise<{ mfaRequired: boolean; preAuthToken?: string }> => {
+    const resp = await fetch(`${API_BASE_URL}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || "Invalid credentials");
+    }
+    const data = await resp.json();
+    if (data.mfa_required) {
+      return { mfaRequired: true, preAuthToken: data.pre_auth_token };
+    }
+    setSessionToken(data.session_token);
+    setUserEmail(email);
+    await AsyncStorage.setItem("saga_session_token", data.session_token);
+    await AsyncStorage.setItem("saga_user_email", email);
+    return { mfaRequired: false };
+  };
+
+  const verifyMfa = async (preAuthToken: string, code: string): Promise<void> => {
+    const resp = await fetch(`${API_BASE_URL}/mfa/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pre_auth_token: preAuthToken, code }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || "Invalid TOTP code");
+    }
+    const data = await resp.json();
+    setSessionToken(data.session_token);
+    const email = await AsyncStorage.getItem("saga_user_email");
+    await AsyncStorage.setItem("saga_session_token", data.session_token);
+    if (email) setUserEmail(email);
+  };
+
+  const authFetch = useCallback(async (url: string, options: RequestInit = {}): Promise<Response> => {
+    const headers = new Headers(options.headers);
+    if (sessionToken) {
+      headers.set("Authorization", `Bearer ${sessionToken}`);
+    }
+    const resp = await fetch(url, { ...options, headers });
+    if (resp.status === 401) {
+      // Session expired — clear it
+      setSessionToken(null);
+      await AsyncStorage.removeItem("saga_session_token");
+    }
+    return resp;
+  }, [sessionToken]);
+
   const logout = async () => {
+    if (sessionToken) {
+      try {
+        await fetch(`${API_BASE_URL}/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        });
+      } catch {
+        // fire-and-forget — ignore errors
+      }
+    }
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
+      await AsyncStorage.removeItem("saga_session_token");
+      await AsyncStorage.removeItem("saga_user_email");
     } catch (e) {
       console.warn("Failed to clear storage:", e);
     }
+    setSessionToken(null);
+    setUserEmail(null);
+    setMfaEnabled(false);
     setHasCompletedOnboarding(false);
     setUserName("");
     setMemberId("");
@@ -617,6 +703,9 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       memberId,
       linkedCards,
       linkedBankAccounts,
+      sessionToken,
+      userEmail,
+      mfaEnabled,
       addLinkedCard,
       removeLinkedCard,
       setDefaultCard,
@@ -637,9 +726,13 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       sellProportional,
       updatePortfolioMix,
       applyPortfolioPreset,
+      login,
+      verifyMfa,
       logout,
+      authFetch,
+      setMfaEnabled,
     }),
-    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, memberId, portfolioIndex, totalUnreimbursed, linkedCards, linkedBankAccounts]
+    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, memberId, portfolioIndex, totalUnreimbursed, linkedCards, linkedBankAccounts, sessionToken, userEmail, mfaEnabled, authFetch]
   );
 
   return <HSAContext.Provider value={value}>{children}</HSAContext.Provider>;

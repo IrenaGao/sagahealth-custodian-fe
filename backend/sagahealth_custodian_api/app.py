@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .util import get_basic_logger
 from .api import router as api_router
+from .auth_router import router as auth_router
 from .db.database import engine
 from .db.models import Base
 
@@ -35,3 +36,4 @@ async def root():
     return {"message": "Hello World"}
 
 app.include_router(api_router)
+app.include_router(auth_router)
