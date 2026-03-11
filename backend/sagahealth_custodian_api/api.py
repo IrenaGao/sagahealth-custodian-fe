@@ -30,7 +30,7 @@ class Method(StrEnum):
 
 
 async def lynx_req(method: Method | str, lynx_route: str, payload: dict[str, Any]):
-    if isinstance(method, str):
+    if not isinstance(method, Method):
         method = Method[method.lower()]
     url = "/".join([settings.LYNX_API_BASE_URL, *(LYNX_ROUTES[lynx_route])])
     async with httpx.AsyncClient() as client:
@@ -86,10 +86,9 @@ async def delete_saga_user(payload: UserDeletePayload, session: Annotated[AsyncS
 @router.post("/enroll")
 async def enroll(payload: UserEnrollmentPayload, session: Annotated[AsyncSession, Depends(get_session)]):
     # TODO: async these in a reasonable way.
-    # Do any pre-lynx business logic here
-    lynx_response = await enroll_lynx_member(payload.enrollment)
-    # Do any post lynx response business logic here
-    await register_saga_user(payload.user_info, session)
+    async with session.begin():
+        await register_saga_user(payload.user_info, session)
+        lynx_response = await enroll_lynx_member(payload.enrollment)
     return lynx_response
 
 

@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def db_normalization(self):
         if self.ENV == "development" and not self.DB_SCHEME:
-            self.DB_SCHEME = "sqlite+aiosqlite:///campaignmaster.db"
+            self.DB_SCHEME = "sqlite+aiosqlite:///sagahealth.db"
         elif self.ENV == "production" and not self.DB_SCHEME:
             self.DB_SCHEME = "postgresql+asyncpg://"  # TODO: Add prod postgres scheme
         return self

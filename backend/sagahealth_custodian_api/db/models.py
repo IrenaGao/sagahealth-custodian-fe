@@ -20,8 +20,9 @@ class User(Base):
 
     TODO: Perhaps generate this uuid server-side to not allow it to be improperly created?
     """
+    __tablename__ = "users"
+
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    email: Mapped[str] = mapped_column(index=True, unique=True)
+    email: Mapped[str] = mapped_column(index=True)  # TODO: Remove
     password_hash: Mapped[str] = mapped_column()
     lynx_member_id: Mapped[str] = mapped_column(index=True, unique=True)
-

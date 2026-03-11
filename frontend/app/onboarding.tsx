@@ -196,73 +196,81 @@ export default function OnboardingScreen() {
         ? { custom_tickers: customTickerSelections }
         : { portfolio_index: portfolioIndex };
 
+    const clientMemberId = ExpoCrypto.randomUUID();
     const payload = {
-      data: {
-        member: {
-          clientMemberId: ExpoCrypto.randomUUID(),
-          clientOrg: HARDCODED_CLIENT_ORG,
-          firstName: firstName.trim() || null,
-          lastName: lastName.trim() || null,
-          dateOfBirth: (() => {
-            const parts = dob.trim().split("/");
-            if (parts.length === 3 && parts[2].length === 4) {
-              return `${parts[2]}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}`;
-            }
-            return null;
-          })(),
-          // gender: gender,
-          healthPlanCoverageType: planType === "individual" ? "Individual" : planType === "family" ? "Family" : null,
-          // race: race,
-          ssn: ssn.replace(/\D/g, "") || null,
-          addresses: street.trim() ? [{
-            line1: street.trim(),
-            city: city.trim() || null,
-            stateProvince: state.trim() || null,
-            country: HARDCODED_ADDRESS_COUNTRY,
-            postalCode: zip.trim() || null,
-            primaryIndicator: true,
-          }] : null,
-          emails: [{
-            // typeDescription: "Personal",
-            emailAddress: email.trim(),
-            primaryIndicator: true,
-          }],
-          phones: [{
-            // typeDescription: "Personal",
-            countryCode: HARDCODED_PHONE_COUNTRY_CODE,
-            phoneNumber: phone.replace(/\D/g, ""),
-            primaryIndicator: true,
-          }],
-          memberCardPreferences: {
-            planName: HARDCODED_MEMBER_CARD_PLAN_NAME,
-            cardPackageName: HARDCODED_MEMBER_CARD_PACKAGE_NAME,
-          },
-          memberProducts: [
-            {
-              effectiveDate: formatDate(new Date()),
-              product: {
-                name: HARDCODED_MEMBER_PRODUCT_NAME
+      enrollment: {
+        data: {
+          member: {
+            clientMemberId,
+            clientOrg: HARDCODED_CLIENT_ORG,
+            firstName: firstName.trim() || null,
+            lastName: lastName.trim() || null,
+            dateOfBirth: (() => {
+              const parts = dob.trim().split("/");
+              if (parts.length === 3 && parts[2].length === 4) {
+                return `${parts[2]}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}`;
               }
-            }
-          ],
-          // memberConsents: [
-          //   {
-          //     acceptedIndicator: agreedDisclosures,
-          //     consent: HARDCODED_HSA_CUSTODIAL_AGREEMENT,
-          //     electronicSignature: `${firstName.trim()} ${lastName.trim()}`,
-          //     consentDate: formatDate(new Date())
-          //   }
-          // ]
-          memberConsents: ALL_AGREEMENTS.map(agreement => ({
-              acceptedIndicator: agreedDisclosures,
-              consent: agreement,
-              electronicSignature: `${firstName.trim()} ${lastName.trim()}`,
-              consentDate: formatDate(new Date())
-          }))
+              return null;
+            })(),
+            // gender: gender,
+            healthPlanCoverageType: planType === "individual" ? "Individual" : planType === "family" ? "Family" : null,
+            // race: race,
+            ssn: ssn.replace(/\D/g, "") || null,
+            addresses: street.trim() ? [{
+              line1: street.trim(),
+              city: city.trim() || null,
+              stateProvince: state.trim() || null,
+              country: HARDCODED_ADDRESS_COUNTRY,
+              postalCode: zip.trim() || null,
+              primaryIndicator: true,
+            }] : null,
+            emails: [{
+              // typeDescription: "Personal",
+              emailAddress: email.trim(),
+              primaryIndicator: true,
+            }],
+            phones: [{
+              // typeDescription: "Personal",
+              countryCode: HARDCODED_PHONE_COUNTRY_CODE,
+              phoneNumber: phone.replace(/\D/g, ""),
+              primaryIndicator: true,
+            }],
+            memberCardPreferences: {
+              planName: HARDCODED_MEMBER_CARD_PLAN_NAME,
+              cardPackageName: HARDCODED_MEMBER_CARD_PACKAGE_NAME,
+            },
+            memberProducts: [
+              {
+                effectiveDate: formatDate(new Date()),
+                product: {
+                  name: HARDCODED_MEMBER_PRODUCT_NAME
+                }
+              }
+            ],
+            // memberConsents: [
+            //   {
+            //     acceptedIndicator: agreedDisclosures,
+            //     consent: HARDCODED_HSA_CUSTODIAL_AGREEMENT,
+            //     electronicSignature: `${firstName.trim()} ${lastName.trim()}`,
+            //     consentDate: formatDate(new Date())
+            //   }
+            // ]
+            memberConsents: ALL_AGREEMENTS.map(agreement => ({
+                acceptedIndicator: agreedDisclosures,
+                consent: agreement,
+                electronicSignature: `${firstName.trim()} ${lastName.trim()}`,
+                consentDate: formatDate(new Date())
+            }))
+          },
+        },
+        idempotency: {
+          idempotencyKey: idempotencyKey,
         },
       },
-      idempotency: {
-        idempotencyKey: idempotencyKey,
+      user_info: {
+        email: email.trim(),
+        password: password,
+        member_id: clientMemberId,
       },
       // TODO: map these fields to the EnrollmentPayload schema
       // spouse_over_55: spouseOver55,
