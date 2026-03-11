@@ -20,6 +20,7 @@ import * as Haptics from "expo-haptics";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { useLocalSearchParams, router } from "expo-router";
 import Colors from "@/constants/colors";
+import { API_BASE_URL, HARDCODED_CLIENT_ORG } from "@shared/constants";
 import { webTopInsetBase, webBottomPadding } from "@/lib/platform";
 import { useHSA, Receipt, LinkedCard, LinkedBankAccount, getLoyaltyTier, loyaltyTiers, LoyaltyTier } from "@/contexts/HSAContext";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
@@ -2929,7 +2930,7 @@ const modalStyles = StyleSheet.create({
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ tab?: string }>();
-  const { balance, cashBalance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, addContribution, autoReimburse, userName, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard, linkedBankAccounts, addLinkedBankAccount, removeLinkedBankAccount, setPrimaryBankAccount, logout } = useHSA();
+  const { balance, cashBalance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, addContribution, autoReimburse, userName, memberId, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard, linkedBankAccounts, addLinkedBankAccount, removeLinkedBankAccount, setPrimaryBankAccount, logout } = useHSA();
   const [showAddCard, setShowAddCard] = useState(false);
   const [showBankAccounts, setShowBankAccounts] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -3055,6 +3056,42 @@ export default function AccountsScreen() {
               <Feather name="log-out" size={18} color={Colors.light.danger} />
               <Text style={styles.logoutBtnText}>Log Out</Text>
             </Pressable>
+
+            <Pressable
+              style={({ pressed }) => [styles.deleteAccountBtn, { opacity: pressed ? 0.8 : 1, transform: [{ scale: pressed ? 0.98 : 1 }] }]}
+              onPress={() => {
+                Alert.alert(
+                  "Delete Account",
+                  "Are you sure you want to permanently delete your account? This action cannot be undone and all your data will be lost.",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete Account",
+                      style: "destructive",
+                      onPress: async () => {
+                        if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+                        try {
+                          await fetch(`${API_BASE_URL}/member`, {
+                            method: "DELETE",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              clientOrgName: HARDCODED_CLIENT_ORG.name,
+                              clientMemberId: memberId,
+                            }),
+                          });
+                        } catch (err) {
+                          console.error("Delete account API error:", err);
+                        }
+                        logout();
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <Feather name="trash-2" size={18} color={Colors.light.danger} />
+              <Text style={styles.deleteAccountBtnText}>Delete Account</Text>
+            </Pressable>
           </Animated.View>
         )}
       </ScrollView>
@@ -3120,6 +3157,23 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   logoutBtnText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.danger,
+  },
+  deleteAccountBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    backgroundColor: "#FEE2E2",
+    borderRadius: 14,
+    paddingVertical: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.light.danger,
+  },
+  deleteAccountBtnText: {
     fontFamily: "DMSans_600SemiBold",
     fontSize: 15,
     color: Colors.light.danger,

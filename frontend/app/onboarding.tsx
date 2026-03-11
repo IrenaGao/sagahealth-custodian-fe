@@ -306,7 +306,8 @@ export default function OnboardingScreen() {
     completeOnboarding(
       firstName.trim() || undefined,
       useCustomTickers && customTickerTotal === 100 ? undefined : portfolioIndex,
-      useCustomTickers && customTickerTotal === 100 ? customTickerSelections : undefined
+      useCustomTickers && customTickerTotal === 100 ? customTickerSelections : undefined,
+      clientMemberId
     );
     if (autoInvest) toggleAutoInvest();
     router.replace("/(tabs)");

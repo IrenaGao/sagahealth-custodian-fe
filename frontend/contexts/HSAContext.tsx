@@ -95,6 +95,7 @@ export interface HSAContextValue {
   hasCompletedOnboarding: boolean;
   isLoading: boolean;
   userName: string;
+  memberId: string;
   portfolioIndex: number;
   totalUnreimbursed: number;
   linkedCards: LinkedCard[];
@@ -111,7 +112,7 @@ export interface HSAContextValue {
   toggleAutoInvest: () => void;
   toggleFirstDollar: () => void;
   toggleRoundUp: () => void;
-  completeOnboarding: (name?: string, portfolioIndex?: number, customTickers?: { ticker: string; name: string; allocation: number }[]) => void;
+  completeOnboarding: (name?: string, portfolioIndex?: number, customTickers?: { ticker: string; name: string; allocation: number }[], memberId?: string) => void;
   buyHolding: (holdingId: string, amount: number) => boolean;
   buyNewTicker: (ticker: string, name: string, amount: number) => boolean;
   sellHolding: (holdingId: string, amount: number) => boolean;
@@ -185,6 +186,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState("");
+  const [memberId, setMemberId] = useState("");
   const [portfolioIndex, setPortfolioIndex] = useState(2);
 
   useEffect(() => {
@@ -202,6 +204,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     if (data) {
       if (data.hasCompletedOnboarding !== undefined) setHasCompletedOnboarding(data.hasCompletedOnboarding as boolean);
       if (data.userName) setUserName(data.userName as string);
+      if (data.memberId) setMemberId(data.memberId as string);
       if (data.autoInvestEnabled !== undefined) setAutoInvestEnabled(data.autoInvestEnabled as boolean);
       if (data.firstDollarEnabled !== undefined) setFirstDollarEnabled(data.firstDollarEnabled as boolean);
       if (data.roundUpEnabled !== undefined) setRoundUpEnabled(data.roundUpEnabled as boolean);
@@ -507,9 +510,10 @@ export function HSAProvider({ children }: { children: ReactNode }) {
 
   const HOLDING_COLORS = ["#2E5E3F", "#4A8BA8", "#D4A574", "#8B6B9C", "#C45B4A"];
 
-  const completeOnboarding = (name?: string, newPortfolioIndex?: number, customTickers?: { ticker: string; name: string; allocation: number }[]) => {
+  const completeOnboarding = (name?: string, newPortfolioIndex?: number, customTickers?: { ticker: string; name: string; allocation: number }[], newMemberId?: string) => {
     setHasCompletedOnboarding(true);
     if (name) setUserName(name);
+    if (newMemberId) setMemberId(newMemberId);
     const idx = newPortfolioIndex ?? portfolioIndex;
     const totalInvested = holdings.reduce((s, h) => s + h.balance, 0) || 8550;
 
@@ -542,6 +546,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     saveData({
       hasCompletedOnboarding: true,
       ...(name ? { userName: name } : {}),
+      ...(newMemberId ? { memberId: newMemberId } : {}),
       portfolioIndex: typeof newPortfolioIndex === "number" ? newPortfolioIndex : idx,
     });
   };
@@ -554,6 +559,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     }
     setHasCompletedOnboarding(false);
     setUserName("");
+    setMemberId("");
     setBalance(12550);
     setInvestedBalance(8550);
     setContributionYTD(2000);
@@ -608,6 +614,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       userName,
       portfolioIndex,
       totalUnreimbursed,
+      memberId,
       linkedCards,
       linkedBankAccounts,
       addLinkedCard,
@@ -632,7 +639,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       applyPortfolioPreset,
       logout,
     }),
-    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, portfolioIndex, totalUnreimbursed, linkedCards, linkedBankAccounts]
+    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, memberId, portfolioIndex, totalUnreimbursed, linkedCards, linkedBankAccounts]
   );
 
   return <HSAContext.Provider value={value}>{children}</HSAContext.Provider>;
