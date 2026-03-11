@@ -22,4 +22,32 @@ export const HARDCODED_ADDRESS_COUNTRY = "US";
 export const HARDCODED_CLIENT_ORG = {
   "name": "Saga_Sandbox"
 }
+export const HARDCODED_HSA_CUSTODIAL_AGREEMENT = {
+    "name": "HSA_CUSTODIAL_AGREEMENT",
+    "productName": "HSA_01"
+}
+export const ALL_AGREEMENTS = [
+    HARDCODED_HSA_CUSTODIAL_AGREEMENT,
+    {
+        "name": "DEPOSIT_ACCOUNT_AGREEMENT",
+        "productName": "HSA_01"
+    },
+    {
+        "name": "TRUTH_IN_SAVINGS",
+        "productName": "HSA_01"
+    },
+    {
+        "name": "FUNDS_AVAILABILITY_AGREEMENT",
+        "productName": "HSA_01"
+    },
+    {
+        "name": "EXTERNAL_FUNDS_TRANSFER",
+        "productName": "HSA_01"
+    },
+    {
+        "name": "ELECTRONIC_RECORDS_SIGNATURE",
+        "productName": "HSA_01"
+    },
+    
+]
 

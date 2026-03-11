@@ -30,6 +30,8 @@ import {
   HARDCODED_ADDRESS_COUNTRY,
   HARDCODED_MEMBER_PRODUCT_NAME,
   HARDCODED_CLIENT_ORG,
+  HARDCODED_HSA_CUSTODIAL_AGREEMENT,
+  ALL_AGREEMENTS
 } from "../shared/constants";
 
 const TOTAL_STEPS = 12;
@@ -242,7 +244,21 @@ export default function OnboardingScreen() {
                 name: HARDCODED_MEMBER_PRODUCT_NAME
               }
             }
-          ]
+          ],
+          // memberConsents: [
+          //   {
+          //     acceptedIndicator: agreedDisclosures,
+          //     consent: HARDCODED_HSA_CUSTODIAL_AGREEMENT,
+          //     electronicSignature: `${firstName.trim()} ${lastName.trim()}`,
+          //     consentDate: formatDate(new Date())
+          //   }
+          // ]
+          memberConsents: ALL_AGREEMENTS.map(agreement => ({
+              acceptedIndicator: agreedDisclosures,
+              consent: agreement,
+              electronicSignature: `${firstName.trim()} ${lastName.trim()}`,
+              consentDate: formatDate(new Date())
+          }))
         },
       },
       idempotency: {

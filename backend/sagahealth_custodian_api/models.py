@@ -2,6 +2,12 @@ from pydantic import BaseModel, model_validator, Field, field_validator
 # from typing import Any
 from enum import Enum
 
+class StrEnum(str, Enum):
+    def __str__(self):
+        return str(self.value)
+    def __repr__(self) -> str:
+        return str(self.value)
+
 class Idempotency(BaseModel):
     idempotencyKey: str | None = None
 
@@ -26,67 +32,67 @@ class Address(BaseModel):
     # postalCodeExtension: str | None = None
     primaryIndicator: bool | None = None
 
-class Gender(str, Enum):
-    MALE = "Male"
-    FEMALE = "Female"
-    OTHER = "Other"
-    NONDISCLOSED = "Non-Disclosed"
-    NONBINARY = "Non-binary"
+# class Gender(StrEnum):
+#     MALE = "Male"
+#     FEMALE = "Female"
+#     OTHER = "Other"
+#     NONDISCLOSED = "Non-Disclosed"
+#     NONBINARY = "Non-binary"
 
-class CoverageType(str, Enum):
+class CoverageType(StrEnum):
     INDIVIDUAL = "Individual"
     FAMILY = "Family"
 
-class GenderPronoun(str, Enum):
-    HE_HIM = "He/Him"
-    SHE_HER = "She/Her"
-    THEY_THEM = "They/Them"
+# class GenderPronoun(StrEnum):
+#     HE_HIM = "He/Him"
+#     SHE_HER = "She/Her"
+#     THEY_THEM = "They/Them"
 
-GENDER_PRONOUN_MAP = {
-    Gender.MALE: GenderPronoun.HE_HIM,
-    Gender.FEMALE: GenderPronoun.SHE_HER,
-    Gender.NONBINARY: GenderPronoun.THEY_THEM,
-    Gender.NONDISCLOSED: GenderPronoun.THEY_THEM
-}
+# GENDER_PRONOUN_MAP = {
+#     Gender.MALE: GenderPronoun.HE_HIM,
+#     Gender.FEMALE: GenderPronoun.SHE_HER,
+#     Gender.NONBINARY: GenderPronoun.THEY_THEM,
+#     Gender.NONDISCLOSED: GenderPronoun.THEY_THEM
+# }
 
-# yikes
-def assume_pronoun(gender: Gender) -> GenderPronoun:
-    return GENDER_PRONOUN_MAP.get(gender, GenderPronoun.THEY_THEM)
+# # yikes
+# def assume_pronoun(gender: Gender) -> GenderPronoun:
+#     return GENDER_PRONOUN_MAP.get(gender, GenderPronoun.THEY_THEM)
 
 
-class Race(str, Enum):
-    AMERICAN_INDIAN_OR_ALASKA_NATIVE = "American Indian or Alaska Native"
-    ASIAN = "Asian"
-    # BLACK_OR_AFRICAN_AMERICAN = "Black or African American"  # Surprised this is not an official race in Lynx API
-    # HISPANIC_OR_LATINO = "Hispanic or Latino"  # this as well
-    NATIVE_HAWAIIAN_OR_PACIFIC_ISLANDER = "Native Hawaiian or Other Pacific Islander"
-    WHITE = "White"
-    OTHER = "Other Race"
+# class Race(StrEnum):
+#     AMERICAN_INDIAN_OR_ALASKA_NATIVE = "American Indian or Alaska Native"
+#     ASIAN = "Asian"
+#     # BLACK_OR_AFRICAN_AMERICAN = "Black or African American"  # Surprised this is not an official race in Lynx API
+#     # HISPANIC_OR_LATINO = "Hispanic or Latino"  # this as well
+#     NATIVE_HAWAIIAN_OR_PACIFIC_ISLANDER = "Native Hawaiian or Other Pacific Islander"
+#     WHITE = "White"
+#     OTHER = "Other Race"
 
-class Religion(str, Enum):
-    CHRISTIANITY = "Christianity"
-    ISLAM = "Islam"
-    HINDUISM = "Hinduism"
-    JUDAISM = "Judaism"
-    BUDDHISM = "Buddhism"
-    FOLK_RELIGIONS = "Folk Religions"
-    OTHER = "Other Religions"
-    UNAFFILIATED = "Unaffiliated"
-    NONDISCLOSED = "Non-Disclosed"
+# class Religion(StrEnum):
+#     CHRISTIANITY = "Christianity"
+#     ISLAM = "Islam"
+#     HINDUISM = "Hinduism"
+#     JUDAISM = "Judaism"
+#     BUDDHISM = "Buddhism"
+#     FOLK_RELIGIONS = "Folk Religions"
+#     OTHER = "Other Religions"
+#     UNAFFILIATED = "Unaffiliated"
+#     NONDISCLOSED = "Non-Disclosed"
 
-class MaritalStatus(str, Enum):
-    NEVER_MARRIED = "Never Married"
-    DIVORCED = "Divorced"
-    MARRIED = "Married"
-    WIDOWED = "Widowed"
-    ANNULLED = "Annulled"
-    INTERLOCUTORY = "Interlocutory"
-    LEGALLY_SEPARATED = "Legally Separated"
-    POLYGAMOUS = "Polygamous"
-    DOMESTIC_PARTNER = "Domestic Partner"
-    UNKNOWN = "Unknown"
+# class MaritalStatus(StrEnum):
+#     NEVER_MARRIED = "Never Married"
+#     DIVORCED = "Divorced"
+#     MARRIED = "Married"
+#     WIDOWED = "Widowed"
+#     ANNULLED = "Annulled"
+#     INTERLOCUTORY = "Interlocutory"
+#     LEGALLY_SEPARATED = "Legally Separated"
+#     POLYGAMOUS = "Polygamous"
+#     DOMESTIC_PARTNER = "Domestic Partner"
+#     UNKNOWN = "Unknown"
 
-class SupportedLanguage(str, Enum):
+class SupportedLanguage(StrEnum):
     ENGLISH = "en_US"
     CHINESE = "zh_CN"
     PORTUGUESE = "pt_BR"
@@ -132,7 +138,7 @@ class MemberPlanBenefitPackage(BaseModel):
     ssbciIndicator: bool | None = None
     ssbciEffectiveDate: str | None = None
 
-class ConsentName(str, Enum):
+class ConsentName(StrEnum):
     HSA_CUSTODIAL_AGREEMENT = "HSA_CUSTODIAL_AGREEMENT"
     DEPOSIT_ACCOUNT_AGREEMENT = "DEPOSIT_ACCOUNT_AGREEMENT"
     TRUTH_IN_SAVINGS = "TRUTH_IN_SAVINGS"
