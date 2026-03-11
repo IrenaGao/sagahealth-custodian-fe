@@ -6,17 +6,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from .util import get_basic_logger
 from .api import router as api_router
 from .auth_router import router as auth_router
-from .db.database import engine
-from .db.models import Base
 
 logger = get_basic_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-        logger.info("Database initialized.")
     yield
 
 
