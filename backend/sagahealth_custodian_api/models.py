@@ -1,12 +1,7 @@
 from pydantic import BaseModel, model_validator, Field, field_validator
 # from typing import Any
-from enum import Enum
+from .util import StrEnum
 
-class StrEnum(str, Enum):
-    def __str__(self):
-        return str(self.value)
-    def __repr__(self) -> str:
-        return str(self.value)
 
 class Idempotency(BaseModel):
     idempotencyKey: str | None = None
@@ -232,3 +227,8 @@ class UserRegistration(BaseModel):
 class UserEnrollmentPayload(BaseModel):
     enrollment: EnrollmentPayload
     user_info: UserRegistration
+
+
+class UserDeletePayload(BaseModel):
+    clientOrgName: str
+    clientMemberId: str

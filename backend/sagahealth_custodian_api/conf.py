@@ -1,8 +1,6 @@
 import pathlib
 from pydantic_settings import BaseSettings, SettingsConfigDict
-
-class LynxSettings(BaseSettings):
-    pass
+from pydantic import model_validator
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
@@ -15,11 +13,22 @@ class Settings(BaseSettings):
     LOG_FILE_LEVEL: str | None = None
     LOG_STREAM_LEVEL: str | None = None
     LOG_BASE_DIR: str | None = None
+    ENV: str = "development"
     # API Configurations
     LYNX_API_BASE_URL: str = "https://sandbox.lynx-fh.co"
     LYNX_AUTH_TOKEN: str
     LYNX_CLIENT_ID: str
     LYNX_CLIENT_SECRET: str
+    # DB Conf
+    DB_SCHEME: str = ""
+
+    @model_validator(mode="after")
+    def db_normalization(self):
+        if self.ENV == "development" and not self.DB_SCHEME:
+            self.DB_SCHEME = "sqlite+aiosqlite:///campaignmaster.db"
+        elif self.ENV == "production" and not self.DB_SCHEME:
+            self.DB_SCHEME = "postgresql+asyncpg://"  # TODO: Add prod postgres scheme
+        return self
 
     # Util properties for log configuration
     @property
