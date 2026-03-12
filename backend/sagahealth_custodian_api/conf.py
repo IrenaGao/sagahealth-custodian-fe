@@ -19,15 +19,22 @@ class Settings(BaseSettings):
     LYNX_AUTH_TOKEN: str
     LYNX_CLIENT_ID: str
     LYNX_CLIENT_SECRET: str
+    LYNX_CLIENT_ORG_NAME: str = "Saga_Sandbox"
+    LYNX_PRODUCT_NAME: str = "HSA_01"
+    # Email
+    RESEND_API_KEY: str = ""
+    EMAIL_OTP_ENABLED: bool | None = None
     # DB Conf
     DB_SCHEME: str = ""
 
     @model_validator(mode="after")
-    def db_normalization(self):
+    def apply_defaults(self):
         if self.ENV == "development" and not self.DB_SCHEME:
             self.DB_SCHEME = "sqlite+aiosqlite:///sagahealth.db"
         elif self.ENV == "production" and not self.DB_SCHEME:
             self.DB_SCHEME = "postgresql+asyncpg://"  # TODO: Add prod postgres scheme
+        if self.EMAIL_OTP_ENABLED is None:
+            self.EMAIL_OTP_ENABLED = self.ENV != "development"
         return self
 
     # Util properties for log configuration

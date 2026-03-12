@@ -48,7 +48,22 @@ def stream_output(proc: subprocess.Popen, label: str) -> None:
         sys.stdout.flush()
 
 
+def run_migrations() -> None:
+    print("Running Alembic migrations…")
+    result = subprocess.run(
+        "poetry run alembic upgrade head",
+        cwd=BACKEND,
+        shell=True,
+    )
+    if result.returncode != 0:
+        print("Alembic migrations failed — aborting.")
+        sys.exit(result.returncode)
+    print("Migrations complete.")
+
+
 def main() -> None:
+    run_migrations()
+
     procs: list[subprocess.Popen] = []
     threads: list[threading.Thread] = []
 

@@ -25,7 +25,7 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    email: Mapped[str] = mapped_column(index=True)  # TODO: Remove
+    email: Mapped[str] = mapped_column(index=True, unique=True)
     password_hash: Mapped[str] = mapped_column()
     lynx_member_id: Mapped[str] = mapped_column(index=True, unique=True)
     totp_secret: Mapped[str | None] = mapped_column(nullable=True, default=None)
@@ -41,4 +41,6 @@ class Session(Base):
     expires_at: Mapped[datetime | None] = mapped_column(nullable=True, default=None)
     pre_auth_token: Mapped[str | None] = mapped_column(unique=True, index=True, nullable=True, default=None)
     pre_auth_expires_at: Mapped[datetime | None] = mapped_column(nullable=True, default=None)
+    email_otp_hash: Mapped[str | None] = mapped_column(nullable=True, default=None)
+    email_otp_expires_at: Mapped[datetime | None] = mapped_column(nullable=True, default=None)
     created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)

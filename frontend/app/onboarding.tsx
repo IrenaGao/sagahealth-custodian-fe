@@ -110,7 +110,7 @@ function formatPhone(text: string): string {
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
-  const { completeOnboarding, toggleAutoInvest, login } = useHSA();
+  const { completeOnboarding, toggleAutoInvest, login, verifyEmailOtp } = useHSA();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const bottomPad = Platform.OS === "web" ? 34 : 16;
   const scrollViewRef = useRef<ScrollView>(null);
@@ -175,6 +175,10 @@ export default function OnboardingScreen() {
   const [investPercentCustomMode, setInvestPercentCustomMode] = useState(false);
   const [investPercentCustomText, setInvestPercentCustomText] = useState("");
   const [investmentConfirmed, setInvestmentConfirmed] = useState(false);
+  const [enrollPreAuthToken, setEnrollPreAuthToken] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpLoading, setOtpLoading] = useState(false);
 
   useEffect(() => {
     if (step === 3) {
@@ -311,18 +315,40 @@ export default function OnboardingScreen() {
     );
     if (autoInvest) toggleAutoInvest();
     try {
-      await login(email.trim(), password);
+      const result = await login(email.trim(), password);
+      if (result.emailOtpRequired && result.preAuthToken) {
+        setEnrollPreAuthToken(result.preAuthToken);
+        return;
+      }
     } catch (e) {
       console.warn("Auto-login after enrollment failed:", e);
     }
-    router.replace("/(tabs)");
+    router.replace("/(tabs)"); // OTP disabled or login failed — auth gate handles the rest
   };
 
-  const goNext = () => {
+  const goNext = async () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (step === 11) {
       if (!investmentConfirmed) {
         setInvestmentConfirmed(true);
+        return;
+      }
+      if (enrollPreAuthToken) {
+        setOtpLoading(true);
+        setOtpError(null);
+        try {
+          const result = await verifyEmailOtp(enrollPreAuthToken, otpCode);
+          if (result.mfaRequired) {
+            router.replace({ pathname: "/mfa-verify", params: { preAuthToken: result.preAuthToken } });
+          } else {
+            router.replace("/(tabs)");
+          }
+        } catch (e: any) {
+          setOtpError(e?.message || "Invalid code. Please try again.");
+          setOtpCode("");
+        } finally {
+          setOtpLoading(false);
+        }
         return;
       }
       finalizeOnboarding();
@@ -397,6 +423,7 @@ export default function OnboardingScreen() {
         }
         return true;
       case 11:
+        if (enrollPreAuthToken) return otpCode.length === 6;
         return true;
       default:
         return false;
@@ -407,6 +434,7 @@ export default function OnboardingScreen() {
     if (step === 4) return "Add Funds";
     if (step === 7) return "Start Investing";
     if (step === 11) {
+      if (enrollPreAuthToken) return "Verify Code";
       if (investmentConfirmed) return "Go to Dashboard";
       return "Confirm & Invest";
     }
@@ -1255,6 +1283,28 @@ export default function OnboardingScreen() {
         );
 
       case 11:
+        if (enrollPreAuthToken) {
+          return (
+            <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
+              <Ionicons name="mail" size={80} color={Colors.light.tint} />
+              <Text style={styles.successTitle}>Check Your Email</Text>
+              <Text style={styles.successSubtitle}>
+                We sent a 6-digit verification code to {email.trim()}. It expires in 10 minutes.
+              </Text>
+              <TextInput
+                style={[styles.otpInput]}
+                value={otpCode}
+                onChangeText={(t) => { setOtpCode(t.replace(/\D/g, "").slice(0, 6)); setOtpError(null); }}
+                placeholder="000000"
+                placeholderTextColor={Colors.light.textMuted}
+                keyboardType="number-pad"
+                maxLength={6}
+                autoFocus
+              />
+              {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
+            </Animated.View>
+          );
+        }
         if (investmentConfirmed) {
           return (
             <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
@@ -1404,7 +1454,7 @@ export default function OnboardingScreen() {
                 { opacity: pressed && canContinue() ? 0.9 : 1, transform: [{ scale: pressed && canContinue() ? 0.98 : 1 }] },
               ]}
               onPress={goNext}
-              disabled={!canContinue()}
+              disabled={!canContinue() || otpLoading}
             >
               <LinearGradient
                 colors={canContinue() ? [Colors.light.tint, Colors.light.tintDark] : [Colors.light.border, Colors.light.border]}
@@ -1412,8 +1462,14 @@ export default function OnboardingScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.nextBtnGradient}
               >
-                <Text style={[styles.nextBtnText, !canContinue() && { color: Colors.light.textMuted }]}>{getButtonText()}</Text>
-                <Feather name="arrow-right" size={18} color={canContinue() ? Colors.light.white : Colors.light.textMuted} />
+                {otpLoading ? (
+                  <ActivityIndicator color={Colors.light.white} />
+                ) : (
+                  <>
+                    <Text style={[styles.nextBtnText, !canContinue() && { color: Colors.light.textMuted }]}>{getButtonText()}</Text>
+                    <Feather name="arrow-right" size={18} color={canContinue() ? Colors.light.white : Colors.light.textMuted} />
+                  </>
+                )}
               </LinearGradient>
             </Pressable>
           </View>
@@ -1615,6 +1671,26 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: 24,
+  },
+  otpInput: {
+    backgroundColor: Colors.light.card,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 32,
+    fontFamily: "DMSans_700Bold",
+    textAlign: "center",
+    letterSpacing: 10,
+    color: Colors.light.text,
+    width: "100%",
+    marginTop: 8,
+  },
+  errorText: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 14,
+    color: Colors.light.danger,
+    textAlign: "center",
   },
   searchInput: {
     backgroundColor: Colors.light.card,

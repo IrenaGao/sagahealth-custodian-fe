@@ -10,6 +10,16 @@ class LoginResponse(BaseModel):
     session_token: str
 
 
+class EmailOTPLoginResponse(BaseModel):
+    email_otp_required: bool = True
+    pre_auth_token: str
+
+
+class EmailOTPVerifyRequest(BaseModel):
+    pre_auth_token: str
+    code: str
+
+
 class MFALoginResponse(BaseModel):
     mfa_required: bool = True
     pre_auth_token: str

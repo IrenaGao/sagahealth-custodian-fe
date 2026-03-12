@@ -1,3 +1,4 @@
+from datetime import date
 from pprint import pformat
 from typing import Iterable, Annotated, Any, cast
 import httpx
@@ -19,7 +20,11 @@ router = APIRouter()
 
 LYNX_ROUTES: dict[str, Iterable[str]] = {
     "member_enroll": ["enrollments", "member"],
-    "member_delete": ["members", "status"]
+    "member_delete": ["members", "status"],
+    "member_details": ["members", "details"],
+    "member_balance": ["accounts", "member", "balance"],
+    "member_transactions": ["transactions", "member", "list"],
+    "member_contribution_limit": ["transactions", "member", "contribution-limit"],
 }
 
 class Method(StrEnum):
@@ -107,3 +112,68 @@ async def delete_member(
         await delete_saga_user(payload, session)
         await delete_lynx_member(payload)
         await session.commit()
+
+
+def _lynx_params(current_user: User, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    if not current_user.lynx_member_id:
+        raise HTTPException(404, "No Lynx member ID on file for this user")
+    params: dict[str, Any] = {
+        "clientMemberId": current_user.lynx_member_id,
+        "clientOrgName": settings.LYNX_CLIENT_ORG_NAME,
+    }
+    if extra:
+        params.update(extra)
+    return params
+
+
+@router.get("/member/details")
+async def member_details(current_user: Annotated[User, Depends(get_current_user)]):
+    data = await lynx_req(Method.GET, "member_details", params=_lynx_params(current_user))
+    if "error" in data:
+        raise HTTPException(502, "Failed to fetch member details from Lynx")
+    member = data.get("member", {})
+    return {
+        "firstName": member.get("firstName", ""),
+        "lastName": member.get("lastName", ""),
+        "dateOfBirth": member.get("dateOfBirth"),
+        "status": member.get("status"),
+        "healthPlanCoverageType": member.get("healthPlanCoverageType"),
+    }
+
+
+@router.get("/member/balance")
+async def member_balance(current_user: Annotated[User, Depends(get_current_user)]):
+    data = await lynx_req(Method.GET, "member_balance", params=_lynx_params(current_user))
+    if "error" in data:
+        raise HTTPException(502, "Failed to fetch member balance from Lynx")
+    return {"accounts": data.get("memberAccounts", [])}
+
+
+@router.get("/member/transactions")
+async def member_transactions(current_user: Annotated[User, Depends(get_current_user)]):
+    data = await lynx_req(
+        Method.GET,
+        "member_transactions",
+        params=_lynx_params(current_user, {"pageSize": 25, "sortOrder": "Descending"}),
+    )
+    if "error" in data:
+        raise HTTPException(502, "Failed to fetch member transactions from Lynx")
+    return {"transactions": data.get("memberTransactions", [])}
+
+
+@router.get("/member/contribution-limit")
+async def member_contribution_limit(current_user: Annotated[User, Depends(get_current_user)]):
+    data = await lynx_req(
+        Method.GET,
+        "member_contribution_limit",
+        params=_lynx_params(current_user, {
+            "productName": settings.LYNX_PRODUCT_NAME,
+            "taxYear": date.today().year,
+        }),
+    )
+    if "error" in data:
+        raise HTTPException(502, "Failed to fetch contribution limit from Lynx")
+    return {
+        "contributionLimit": data.get("contributionLimit", "0"),
+        "contributionTotal": data.get("contributionTotal", "0"),
+    }

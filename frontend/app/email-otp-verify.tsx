@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 import {
   ActivityIndicator,
-  Image,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -10,33 +9,34 @@ import {
   View,
 } from "react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { router } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Colors from "@/constants/colors";
 import { useHSA } from "@/contexts/HSAContext";
 
-export default function LoginScreen() {
+export default function EmailOTPVerifyScreen() {
   const insets = useSafeAreaInsets();
-  const { login } = useHSA();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { verifyEmailOtp } = useHSA();
+  const { preAuthToken } = useLocalSearchParams<{ preAuthToken: string }>();
+  const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canSubmit = email.trim().length > 0 && password.length >= 8;
+  const canSubmit = code.length === 6;
 
-  const handleLogin = async () => {
-    if (!canSubmit) return;
+  const handleVerify = async () => {
+    if (!canSubmit || !preAuthToken) return;
     setLoading(true);
     setError(null);
     try {
-      const result = await login(email.trim(), password);
-      if (result.emailOtpRequired && result.preAuthToken) {
-        router.push({ pathname: "/email-otp-verify", params: { preAuthToken: result.preAuthToken } });
+      const result = await verifyEmailOtp(preAuthToken, code);
+      if (result.mfaRequired) {
+        router.replace({ pathname: "/mfa-verify", params: { preAuthToken: result.preAuthToken } });
       }
-      // if OTP disabled, session_token is set and the auth gate redirects automatically
+      // auth gate handles redirect to /(tabs) on sessionToken set
     } catch (e: any) {
-      setError(e?.message || "Login failed. Please try again.");
+      setError(e?.message || "Invalid code. Please try again.");
+      setCode("");
     } finally {
       setLoading(false);
     }
@@ -44,42 +44,29 @@ export default function LoginScreen() {
 
   return (
     <ScrollView
-      style={[styles.container]}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 32 }]}
+      style={styles.container}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 48, paddingBottom: insets.bottom + 32 }]}
       keyboardShouldPersistTaps="handled"
     >
-      <Image source={require("@/assets/images/saga-logo.png")} style={styles.logo} resizeMode="contain" />
-
       <View style={styles.header}>
-        <Text style={styles.title}>Welcome back</Text>
-        <Text style={styles.subtitle}>Sign in to your Saga Health HSA</Text>
+        <Text style={styles.title}>Check Your Email</Text>
+        <Text style={styles.subtitle}>
+          We sent a 6-digit verification code to your email address. It expires in 10 minutes.
+        </Text>
       </View>
 
       <View style={styles.form}>
         <View style={styles.formGroup}>
-          <Text style={styles.inputLabel}>Email</Text>
+          <Text style={styles.inputLabel}>Verification Code</Text>
           <TextInput
-            style={styles.input}
-            value={email}
-            onChangeText={setEmail}
-            placeholder="you@email.com"
+            style={[styles.input, styles.codeInput]}
+            value={code}
+            onChangeText={(t) => setCode(t.replace(/\D/g, "").slice(0, 6))}
+            placeholder="000000"
             placeholderTextColor={Colors.light.textMuted}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoComplete="off"
-          />
-        </View>
-        <View style={styles.formGroup}>
-          <Text style={styles.inputLabel}>Password</Text>
-          <TextInput
-            style={styles.input}
-            value={password}
-            onChangeText={setPassword}
-            placeholder="Your password"
-            placeholderTextColor={Colors.light.textMuted}
-            secureTextEntry
-            autoCapitalize="none"
-            autoComplete="off"
+            keyboardType="number-pad"
+            maxLength={6}
+            autoFocus
           />
         </View>
 
@@ -87,7 +74,7 @@ export default function LoginScreen() {
 
         <Pressable
           style={({ pressed }) => [{ opacity: pressed && canSubmit ? 0.9 : 1, transform: [{ scale: pressed && canSubmit ? 0.98 : 1 }] }]}
-          onPress={handleLogin}
+          onPress={handleVerify}
           disabled={!canSubmit || loading}
         >
           <LinearGradient
@@ -99,13 +86,13 @@ export default function LoginScreen() {
             {loading ? (
               <ActivityIndicator color={Colors.light.white} />
             ) : (
-              <Text style={[styles.btnText, !canSubmit && { color: Colors.light.textMuted }]}>Sign In</Text>
+              <Text style={[styles.btnText, !canSubmit && { color: Colors.light.textMuted }]}>Verify</Text>
             )}
           </LinearGradient>
         </Pressable>
 
-        <Pressable onPress={() => router.replace("/onboarding")} style={styles.linkBtn}>
-          <Text style={styles.linkText}>New user? Enroll here</Text>
+        <Pressable onPress={() => router.replace("/login")} style={styles.linkBtn}>
+          <Text style={styles.linkText}>Back to login</Text>
         </Pressable>
       </View>
     </ScrollView>
@@ -118,31 +105,21 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.light.background,
   },
   content: {
-    flexGrow: 1,
-    justifyContent: "center",
     paddingHorizontal: 24,
     gap: 32,
   },
-  logo: {
-    width: 160,
-    height: 120,
-    alignSelf: "center",
-  },
   header: {
     gap: 8,
-    alignItems: "center",
   },
   title: {
     fontFamily: "DMSans_700Bold",
     fontSize: 32,
     color: Colors.light.text,
-    textAlign: "center",
   },
   subtitle: {
     fontFamily: "DMSans_400Regular",
     fontSize: 16,
     color: Colors.light.textSecondary,
-    textAlign: "center",
   },
   form: {
     gap: 16,
@@ -164,6 +141,12 @@ const styles = StyleSheet.create({
     fontFamily: "DMSans_400Regular",
     fontSize: 16,
     color: Colors.light.text,
+  },
+  codeInput: {
+    fontSize: 28,
+    fontFamily: "DMSans_700Bold",
+    textAlign: "center",
+    letterSpacing: 8,
   },
   errorText: {
     fontFamily: "DMSans_400Regular",

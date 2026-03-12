@@ -1,4 +1,5 @@
 import datetime
+import hashlib
 import secrets
 from typing import Annotated
 
@@ -11,6 +12,18 @@ from .db.models import Session, User
 
 SESSION_EXPIRY_DAYS = 30
 PRE_AUTH_EXPIRY_MINUTES = 5
+EMAIL_OTP_EXPIRY_MINUTES = 10
+
+
+def generate_email_otp() -> tuple[str, str]:
+    """Return (otp, otp_hash). otp is the 6-digit code to send; otp_hash is stored in the DB."""
+    otp = str(secrets.randbelow(1_000_000)).zfill(6)
+    otp_hash = hashlib.sha256(otp.encode()).hexdigest()
+    return otp, otp_hash
+
+
+def verify_email_otp_hash(otp: str, otp_hash: str) -> bool:
+    return hashlib.sha256(otp.encode()).hexdigest() == otp_hash
 
 
 async def create_session(user_id: int, db: AsyncSession) -> Session:
@@ -25,11 +38,13 @@ async def create_session(user_id: int, db: AsyncSession) -> Session:
     return row
 
 
-async def create_pre_auth_session(user_id: int, db: AsyncSession) -> Session:
+async def create_pre_auth_session(user_id: int, otp_hash: str, db: AsyncSession) -> Session:
     row = Session(
         user_id=user_id,
         pre_auth_token=secrets.token_urlsafe(32),
         pre_auth_expires_at=datetime.datetime.utcnow() + datetime.timedelta(minutes=PRE_AUTH_EXPIRY_MINUTES),
+        email_otp_hash=otp_hash,
+        email_otp_expires_at=datetime.datetime.utcnow() + datetime.timedelta(minutes=EMAIL_OTP_EXPIRY_MINUTES),
     )
     db.add(row)
     await db.commit()

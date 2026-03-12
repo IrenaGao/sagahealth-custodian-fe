@@ -38,12 +38,12 @@ function AuthGate({ children }: PropsWithChildren) {
 
   useEffect(() => {
     if (isLoading) return;
-    const publicSegments = ["login", "mfa-verify", "onboarding"];
+    const publicSegments = ["login", "email-otp-verify", "mfa-verify", "onboarding"];
     const isPublic = publicSegments.includes(segments[0] as string);
     if (!sessionToken && !isPublic) {
       router.replace("/login");
-    } else if (sessionToken && (segments[0] === "login" || segments[0] === "mfa-verify")) {
-      router.replace("/(tabs)");
+    } else if (sessionToken && (segments[0] === "login" || segments[0] === "email-otp-verify" || segments[0] === "mfa-verify")) {
+      router.replace("/dashboard");
     }
   }, [sessionToken, isLoading, segments, router]);
 
@@ -61,6 +61,7 @@ function RootLayoutNav() {
         <Stack.Screen name="documents" options={{ headerShown: false }} />
         <Stack.Screen name="trade" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="email-otp-verify" options={{ headerShown: false }} />
         <Stack.Screen name="mfa-verify" options={{ headerShown: false }} />
       </Stack>
     </AuthGate>
