@@ -35,7 +35,7 @@ class Method(StrEnum):
     DELETE = "delete"
 
 
-async def lynx_req(method: Method | str, lynx_route: str, payload: dict[str, Any] | None = None, params: dict[str, Any] | None = None):
+async def lynx_req(method: Method | str, lynx_route: str, payload: dict[str, Any] | None = None, params: dict[str, Any] | None = None) -> dict[str, Any]:
     if not isinstance(method, Method):
         method = Method[method.lower()]
     url = "/".join([settings.LYNX_API_BASE_URL, *(LYNX_ROUTES[lynx_route])])
