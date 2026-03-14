@@ -1,7 +1,7 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { Stack } from "expo-router";
+import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
-import React, { useEffect } from "react";
+import React, { PropsWithChildren, useEffect } from "react";
 import { Platform, Text, TextInput } from "react-native";
 
 // Prevent iOS Accessibility "Larger Text" from scaling the app's fonts.
@@ -20,7 +20,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { MobileWebFrame } from "@/components/MobileWebFrame";
 import { queryClient } from "@/lib/query-client";
-import { HSAProvider } from "@/contexts/HSAContext";
+import { HSAProvider, useHSA } from "@/contexts/HSAContext";
 import {
   useFonts,
   DMSans_400Regular,
@@ -31,16 +31,40 @@ import {
 
 SplashScreen.preventAutoHideAsync();
 
+function AuthGate({ children }: PropsWithChildren) {
+  const { sessionToken, isLoading } = useHSA();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (isLoading) return;
+    const publicSegments = ["login", "email-otp-verify", "mfa-verify", "onboarding"];
+    const isPublic = publicSegments.includes(segments[0] as string);
+    if (!sessionToken && !isPublic) {
+      router.replace("/login");
+    } else if (sessionToken && (segments[0] === "login" || segments[0] === "email-otp-verify" || segments[0] === "mfa-verify")) {
+      router.replace("/dashboard");
+    }
+  }, [sessionToken, isLoading, segments, router]);
+
+  return <>{children}</>;
+}
+
 function RootLayoutNav() {
   return (
-    <Stack screenOptions={{ headerBackTitle: "Back" }}>
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="dashboard" options={{ headerShown: false }} />
-      <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: "fullScreenModal" }} />
-      <Stack.Screen name="nearby-services" options={{ headerShown: false, presentation: "modal" }} />
-      <Stack.Screen name="documents" options={{ headerShown: false }} />
-      <Stack.Screen name="trade" options={{ headerShown: false }} />
-    </Stack>
+    <AuthGate>
+      <Stack screenOptions={{ headerBackTitle: "Back" }}>
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="dashboard" options={{ headerShown: false }} />
+        <Stack.Screen name="onboarding" options={{ headerShown: false, presentation: "fullScreenModal" }} />
+        <Stack.Screen name="nearby-services" options={{ headerShown: false, presentation: "modal" }} />
+        <Stack.Screen name="documents" options={{ headerShown: false }} />
+        <Stack.Screen name="trade" options={{ headerShown: false }} />
+        <Stack.Screen name="login" options={{ headerShown: false }} />
+        <Stack.Screen name="email-otp-verify" options={{ headerShown: false }} />
+        <Stack.Screen name="mfa-verify" options={{ headerShown: false }} />
+      </Stack>
+    </AuthGate>
   );
 }
 

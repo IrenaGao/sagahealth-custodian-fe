@@ -22,7 +22,7 @@ import Animated, {
 import { router } from "expo-router";
 import Colors from "@/constants/colors";
 import { webTopInsetBase, webBottomPadding } from "@/lib/platform";
-import { useHSA, getLoyaltyTier } from "@/contexts/HSAContext";
+import { useHSA, getLoyaltyTier, LynxTransaction } from "@/contexts/HSAContext";
 
 const sagaLogo = require("@/assets/images/saga-logo.png");
 
@@ -538,10 +538,48 @@ function useGreeting() {
   return greeting;
 }
 
+function mapLynxTransactions(lynxTxs: LynxTransaction[]): { id: string; type: string; amount: number; description: string; date: string }[] {
+  return lynxTxs.map((t) => {
+    const cat = (t.category ?? "").toLowerCase();
+    const dir = (t.direction ?? "").toLowerCase();
+    let type = "purchase";
+    if (cat.includes("contribution")) type = "contribution";
+    else if (cat.includes("reimburs")) type = "reimbursement";
+    else if (cat.includes("invest") || cat.includes("transfer")) type = "investment";
+    const amount = dir === "debit" ? -Math.abs(t.amount) : Math.abs(t.amount);
+    const description = t.merchantName || t.shortMemo || "Transaction";
+    const date = t.transactionDate ? t.transactionDate.slice(0, 10) : new Date().toISOString().slice(0, 10);
+    return { id: t.id, type, amount, description, date };
+  });
+}
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, loyaltyPoints, userName, hasCompletedOnboarding, isLoading } = useHSA();
-  const loyalty = getLoyaltyTier(balance);
+  const { balance: mockBalance, investedBalance: mockInvestedBalance, transactions: mockTransactions, loyaltyPoints, userName, hasCompletedOnboarding, isLoading, lynxData, lynxDataLoading } = useHSA();
+
+  // Prefer real Lynx data where available, fall back to mock
+  const displayName = lynxData?.firstName
+    ? `${lynxData.firstName} ${lynxData.lastName}`.trim()
+    : (userName || "");
+
+  const totalAvailable = lynxData
+    ? lynxData.accounts.reduce((s, a) => s + a.availableAmount, 0)
+    : mockBalance;
+
+  const investAccount = lynxData?.accounts.find((a) => (a.type ?? "").toLowerCase().includes("invest"));
+  const displayInvested = investAccount ? investAccount.availableAmount : (lynxData ? 0 : mockInvestedBalance);
+  const displayCash = totalAvailable - displayInvested;
+
+  const displayContribLimit = lynxData?.contributionLimit ?? 0;
+  const displayContribYTD = lynxData?.contributionTotal ?? 0;
+
+  const displayTransactions = lynxData
+    ? mapLynxTransactions(lynxData.transactions)
+    : mockTransactions;
+
+  const isDataLoading = lynxDataLoading && !lynxData;
+
+  const loyalty = getLoyaltyTier(totalAvailable);
   const webTopInset = Platform.OS === "web" ? webTopInsetBase : 0;
   const greeting = useGreeting();
 
@@ -561,7 +599,7 @@ export default function HomeScreen() {
         <View style={styles.headerLeft}>
           <View style={styles.headerInfo}>
             <View style={styles.nameRow}>
-              <Text style={styles.name}>{userName || "Alex"}</Text>
+              <Text style={styles.name}>{displayName || "Welcome"}</Text>
               {loyalty.current && (
                 <View style={[styles.tierBadge, { backgroundColor: loyalty.current.color + "14", borderColor: loyalty.current.color + "30" }]}>
                   <Ionicons
@@ -592,7 +630,7 @@ export default function HomeScreen() {
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? webBottomPadding : undefined }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? webBottomPadding : Platform.OS === "android" ? insets.bottom * 2.8 : undefined }]}
         contentInsetAdjustmentBehavior="automatic"
       >
         <Animated.View entering={Platform.OS !== "web" ? FadeInDown.delay(100).duration(500) : undefined}>
@@ -603,18 +641,18 @@ export default function HomeScreen() {
             style={styles.balanceCard}
           >
             <Text style={styles.balanceLabel}>Total Balance</Text>
-            <Text style={styles.balanceAmount}>${balance.toLocaleString()}</Text>
+            <Text style={styles.balanceAmount}>{isDataLoading ? "Loading..." : `$${totalAvailable.toLocaleString()}`}</Text>
             <View style={styles.balanceRow}>
               <View style={styles.balanceSplit}>
                 <Feather name="trending-up" size={14} color={Colors.light.tintMuted} />
                 <Text style={styles.splitLabel}>Invested</Text>
-                <Text style={styles.splitValue}>${investedBalance.toLocaleString()}</Text>
+                <Text style={styles.splitValue}>{isDataLoading ? "..." : `$${displayInvested.toLocaleString()}`}</Text>
               </View>
               <View style={styles.balanceDivider} />
               <View style={styles.balanceSplit}>
                 <Feather name="dollar-sign" size={14} color={Colors.light.tintMuted} />
                 <Text style={styles.splitLabel}>Cash</Text>
-                <Text style={styles.splitValue}>${cashBalance.toLocaleString()}</Text>
+                <Text style={styles.splitValue}>{isDataLoading ? "..." : `$${displayCash.toLocaleString()}`}</Text>
               </View>
             </View>
 
@@ -623,20 +661,24 @@ export default function HomeScreen() {
               <View style={styles.contribHeader}>
                 <Text style={styles.contribLabel}>Annual Contributions</Text>
                 <Text style={styles.contribRemaining}>
-                  ${(contributionLimit - contributionYTD).toLocaleString()} left
+                  {isDataLoading ? "..." : `$${(displayContribLimit - displayContribYTD).toLocaleString()} left`}
                 </Text>
               </View>
               <View style={styles.contribTrack}>
-                <View style={[styles.contribFill, { width: `${Math.min((contributionYTD / contributionLimit) * 100, 100)}%` }]} />
+                {!isDataLoading && (
+                  <View style={[styles.contribFill, { width: `${Math.min((displayContribYTD / displayContribLimit) * 100, 100)}%` }]} />
+                )}
               </View>
-              <View style={styles.contribFooter}>
-                <Text style={styles.contribDetail}>
-                  ${contributionYTD.toLocaleString()} of ${contributionLimit.toLocaleString()}
-                </Text>
-                <Text style={styles.contribPercent}>
-                  {Math.round((contributionYTD / contributionLimit) * 100)}%
-                </Text>
-              </View>
+              {!isDataLoading && (
+                <View style={styles.contribFooter}>
+                  <Text style={styles.contribDetail}>
+                    ${displayContribYTD.toLocaleString()} of ${displayContribLimit.toLocaleString()}
+                  </Text>
+                  <Text style={styles.contribPercent}>
+                    {Math.round((displayContribYTD / displayContribLimit) * 100)}%
+                  </Text>
+                </View>
+              )}
             </View>
           </LinearGradient>
         </Animated.View>
@@ -687,9 +729,9 @@ export default function HomeScreen() {
               </Pressable>
             </View>
             <View style={styles.txList}>
-              {transactions.slice(0, 5).map((tx) => (
-                <TransactionItem key={tx.id} tx={tx} />
-              ))}
+              {isDataLoading
+                ? <Text style={styles.loadingText}>Loading...</Text>
+                : displayTransactions.slice(0, 5).map((tx) => <TransactionItem key={tx.id} tx={tx} />)}
             </View>
           </View>
         </Animated.View>
@@ -944,4 +986,10 @@ const styles = StyleSheet.create({
     color: Colors.light.tint,
   },
   txList: {},
+  loadingText: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 14,
+    color: Colors.light.textMuted,
+    paddingVertical: 12,
+  },
 });

@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
+import * as ExpoCrypto from "expo-crypto";
 import {
   StyleSheet,
   Text,
@@ -9,6 +10,8 @@ import {
   TextInput,
   ActivityIndicator,
   Switch,
+  ToastAndroid,
+  // AlertIOS,
 } from "react-native";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -19,6 +22,17 @@ import { router } from "expo-router";
 import Animated, { FadeIn, FadeInDown } from "react-native-reanimated";
 import Colors from "@/constants/colors";
 import { useHSA } from "@/contexts/HSAContext";
+import {
+  API_BASE_URL,
+  HARDCODED_MEMBER_CARD_PLAN_NAME,
+  HARDCODED_MEMBER_CARD_PACKAGE_NAME,
+  HARDCODED_PHONE_COUNTRY_CODE,
+  HARDCODED_ADDRESS_COUNTRY,
+  HARDCODED_MEMBER_PRODUCT_NAME,
+  HARDCODED_CLIENT_ORG,
+  HARDCODED_HSA_CUSTODIAL_AGREEMENT,
+  ALL_AGREEMENTS
+} from "../shared/constants";
 
 const TOTAL_STEPS = 12;
 
@@ -64,6 +78,14 @@ const AVAILABLE_TICKERS = [
   { ticker: "JNJ", name: "Johnson & Johnson", type: "stock" },
 ];
 
+// from: https://stackoverflow.com/questions/23593052/format-javascript-date-as-yyyy-mm-dd
+function formatDate(date: Date) {
+    const month = ('' + (date.getMonth() + 1)).padStart(2, "0")
+    const day = ('' + date.getDate()).padStart(2, "0")
+    const year = date.getFullYear();
+    return [year, month, day].join('-');
+}
+
 
 function formatDob(text: string): string {
   const digits = text.replace(/\D/g, "").slice(0, 8);
@@ -88,10 +110,12 @@ function formatPhone(text: string): string {
 
 export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
-  const { completeOnboarding, toggleAutoInvest } = useHSA();
+  const { completeOnboarding, toggleAutoInvest, login, verifyEmailOtp } = useHSA();
   const webTopInset = Platform.OS === "web" ? 67 : 0;
   const bottomPad = Platform.OS === "web" ? 34 : 16;
   const scrollViewRef = useRef<ScrollView>(null);
+
+  const idempotencyKey = useMemo(() => ExpoCrypto.randomUUID(), []);
 
   const [step, setStep] = useState(0);
 
@@ -107,6 +131,9 @@ export default function OnboardingScreen() {
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
   const [zip, setZip] = useState("");
+
+  // const [gender, setGender] = useState<string | null>(null);
+  // const [race, setRace] = useState<string | null>(null);
 
   const [planType, setPlanType] = useState<"individual" | "family" | null>(null);
   const [spouseOver55, setSpouseOver55] = useState(false);
@@ -148,6 +175,10 @@ export default function OnboardingScreen() {
   const [investPercentCustomMode, setInvestPercentCustomMode] = useState(false);
   const [investPercentCustomText, setInvestPercentCustomText] = useState("");
   const [investmentConfirmed, setInvestmentConfirmed] = useState(false);
+  const [enrollPreAuthToken, setEnrollPreAuthToken] = useState<string | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpLoading, setOtpLoading] = useState(false);
 
   useEffect(() => {
     if (step === 3) {
@@ -163,20 +194,164 @@ export default function OnboardingScreen() {
   }, [step]);
 
 
-  const goNext = () => {
+  const finalizeOnboarding = async () => {
+    const portfolioChoice =
+      useCustomTickers && customTickerTotal === 100
+        ? { custom_tickers: customTickerSelections }
+        : { portfolio_index: portfolioIndex };
+
+    const clientMemberId = ExpoCrypto.randomUUID();
+    const payload = {
+      enrollment: {
+        data: {
+          member: {
+            clientMemberId,
+            clientOrg: HARDCODED_CLIENT_ORG,
+            firstName: firstName.trim() || null,
+            lastName: lastName.trim() || null,
+            dateOfBirth: (() => {
+              const parts = dob.trim().split("/");
+              if (parts.length === 3 && parts[2].length === 4) {
+                return `${parts[2]}-${parts[0].padStart(2, "0")}-${parts[1].padStart(2, "0")}`;
+              }
+              return null;
+            })(),
+            // gender: gender,
+            healthPlanCoverageType: planType === "individual" ? "Individual" : planType === "family" ? "Family" : null,
+            // race: race,
+            ssn: ssn.replace(/\D/g, "") || null,
+            addresses: street.trim() ? [{
+              line1: street.trim(),
+              city: city.trim() || null,
+              stateProvince: state.trim() || null,
+              country: HARDCODED_ADDRESS_COUNTRY,
+              postalCode: zip.trim() || null,
+              primaryIndicator: true,
+            }] : null,
+            emails: [{
+              // typeDescription: "Personal",
+              emailAddress: email.trim(),
+              primaryIndicator: true,
+            }],
+            phones: [{
+              // typeDescription: "Personal",
+              countryCode: HARDCODED_PHONE_COUNTRY_CODE,
+              phoneNumber: phone.replace(/\D/g, ""),
+              primaryIndicator: true,
+            }],
+            memberCardPreferences: {
+              planName: HARDCODED_MEMBER_CARD_PLAN_NAME,
+              cardPackageName: HARDCODED_MEMBER_CARD_PACKAGE_NAME,
+            },
+            memberProducts: [
+              {
+                effectiveDate: formatDate(new Date()),
+                product: {
+                  name: HARDCODED_MEMBER_PRODUCT_NAME
+                }
+              }
+            ],
+            // memberConsents: [
+            //   {
+            //     acceptedIndicator: agreedDisclosures,
+            //     consent: HARDCODED_HSA_CUSTODIAL_AGREEMENT,
+            //     electronicSignature: `${firstName.trim()} ${lastName.trim()}`,
+            //     consentDate: formatDate(new Date())
+            //   }
+            // ]
+            memberConsents: ALL_AGREEMENTS.map(agreement => ({
+                acceptedIndicator: agreedDisclosures,
+                consent: agreement,
+                electronicSignature: `${firstName.trim()} ${lastName.trim()}`,
+                consentDate: formatDate(new Date())
+            }))
+          },
+        },
+        idempotency: {
+          idempotencyKey: idempotencyKey,
+        },
+      },
+      user_info: {
+        email: email.trim(),
+        password: password,
+        member_id: clientMemberId,
+      },
+      // TODO: map these fields to the EnrollmentPayload schema
+      // spouse_over_55: spouseOver55,
+      // employment_status: employmentStatus,
+      // irs_withholding_backup: irsWithholdingBackup,
+      // director_of_public_company: directorOfPublicCompany,
+      // director_stock_ticker: directorStockTicker.trim() || null,
+      // politically_exposed: politicallyExposed,
+      // pep_full_name: pepFullName.trim() || null,
+      // broker_dealer_affiliate: brokerDealerAffiliate,
+      // contribution_amount: contributionAmount,
+      // frequency: frequency,
+      // auto_invest: autoInvest,
+      // invest_percent: investPercent,
+      // ...portfolioChoice,
+    };
+
+    try {
+      const resp = await fetch(`${API_BASE_URL}/enroll`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!resp.ok) {
+        const errorText = await resp.text();
+        console.error("Enrollment API error:", resp.status, errorText);
+        throw new Error(`[${resp.status}] ${errorText}`);
+      }
+    } catch (err) {
+      console.error("Enrollment API error:", err);
+    }
+
+    completeOnboarding(
+      firstName.trim() || undefined,
+      useCustomTickers && customTickerTotal === 100 ? undefined : portfolioIndex,
+      useCustomTickers && customTickerTotal === 100 ? customTickerSelections : undefined,
+      clientMemberId
+    );
+    if (autoInvest) toggleAutoInvest();
+    try {
+      const result = await login(email.trim(), password);
+      if (result.emailOtpRequired && result.preAuthToken) {
+        setEnrollPreAuthToken(result.preAuthToken);
+        return;
+      }
+    } catch (e) {
+      console.warn("Auto-login after enrollment failed:", e);
+    }
+    router.replace("/(tabs)"); // OTP disabled or login failed — auth gate handles the rest
+  };
+
+  const goNext = async () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     if (step === 11) {
       if (!investmentConfirmed) {
         setInvestmentConfirmed(true);
         return;
       }
-      completeOnboarding(
-        firstName.trim(),
-        useCustomTickers && customTickerTotal === 100 ? undefined : portfolioIndex,
-        useCustomTickers && customTickerTotal === 100 ? customTickerSelections : undefined
-      );
-      if (autoInvest) toggleAutoInvest();
-      router.replace("/(tabs)");
+      if (enrollPreAuthToken) {
+        setOtpLoading(true);
+        setOtpError(null);
+        try {
+          const result = await verifyEmailOtp(enrollPreAuthToken, otpCode);
+          if (result.mfaRequired) {
+            router.replace({ pathname: "/mfa-verify", params: { preAuthToken: result.preAuthToken } });
+          } else {
+            router.replace("/(tabs)");
+          }
+        } catch (e: any) {
+          setOtpError(e?.message || "Invalid code. Please try again.");
+          setOtpCode("");
+        } finally {
+          setOtpLoading(false);
+        }
+        return;
+      }
+      finalizeOnboarding();
       return;
     }
     setStep(step + 1);
@@ -189,8 +364,7 @@ export default function OnboardingScreen() {
 
   const handleSkip = () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    completeOnboarding(firstName.trim() || undefined);
-    router.replace("/(tabs)");
+    finalizeOnboarding();
   };
 
   const handleBankSelect = (bankId: string) => {
@@ -249,6 +423,7 @@ export default function OnboardingScreen() {
         }
         return true;
       case 11:
+        if (enrollPreAuthToken) return otpCode.length === 6;
         return true;
       default:
         return false;
@@ -259,6 +434,7 @@ export default function OnboardingScreen() {
     if (step === 4) return "Add Funds";
     if (step === 7) return "Start Investing";
     if (step === 11) {
+      if (enrollPreAuthToken) return "Verify Code";
       if (investmentConfirmed) return "Go to Dashboard";
       return "Confirm & Invest";
     }
@@ -307,6 +483,18 @@ export default function OnboardingScreen() {
   const renderStep = () => {
     switch (step) {
       case 0:
+        // Connectivity test - uncomment to verify API connection during onboarding development
+        // console.log(`API_BASE_URL: ${API_BASE_URL}`);
+        // fetch(`${API_BASE_URL}/`).then(res => res.json()).then(data => {
+        //   console.log("API Response:", data);
+        //   if (Platform.OS === "android") {
+        //     ToastAndroid.show("API Connected Successfully!", ToastAndroid.SHORT);
+        //   } else if (Platform.OS === "ios") {
+        //     // AlertIOS.alert("API Connected Successfully!");
+        //   } else {
+        //     alert("API Connected Successfully!");
+        //   }
+        // }).catch(err => console.error("API Error:", err));
         return (
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.stepContent}>
             <Text style={styles.stepTitle}>Let's get started</Text>
@@ -373,6 +561,40 @@ export default function OnboardingScreen() {
                 <TextInput style={styles.input} value={zip} onChangeText={(t) => setZip(t)} placeholder="90210" placeholderTextColor={Colors.light.textMuted} keyboardType="number-pad" maxLength={5} autoComplete="off" />
               </View>
             </View>
+            {/* <View style={styles.questionSection}>
+              <Text style={styles.questionLabel}>Gender</Text>
+              <View style={styles.optionsWrap}>
+                {(["Male", "Female", "Non-binary", "Non-Disclosed", "Other"] as const).map((opt) => (
+                  <Pressable
+                    key={opt}
+                    style={[styles.optionPill, gender === opt && styles.optionPillActive]}
+                    onPress={() => {
+                      if (Platform.OS !== "web") Haptics.selectionAsync();
+                      setGender(opt);
+                    }}
+                  >
+                    <Text style={[styles.optionPillText, gender === opt && styles.optionPillTextActive]}>{opt}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            <View style={styles.questionSection}>
+              <Text style={styles.questionLabel}>Race</Text>
+              <View style={styles.optionsWrap}>
+                {(["American Indian or Alaska Native", "Asian", "Native Hawaiian or Other Pacific Islander", "White", "Other Race"] as const).map((opt) => (
+                  <Pressable
+                    key={opt}
+                    style={[styles.optionPill, race === opt && styles.optionPillActive]}
+                    onPress={() => {
+                      if (Platform.OS !== "web") Haptics.selectionAsync();
+                      setRace(opt);
+                    }}
+                  >
+                    <Text style={[styles.optionPillText, race === opt && styles.optionPillTextActive]}>{opt}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View> */}
           </View>
         );
 
@@ -1061,6 +1283,28 @@ export default function OnboardingScreen() {
         );
 
       case 11:
+        if (enrollPreAuthToken) {
+          return (
+            <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
+              <Ionicons name="mail" size={80} color={Colors.light.tint} />
+              <Text style={styles.successTitle}>Check Your Email</Text>
+              <Text style={styles.successSubtitle}>
+                We sent a 6-digit verification code to {email.trim()}. It expires in 10 minutes.
+              </Text>
+              <TextInput
+                style={[styles.otpInput]}
+                value={otpCode}
+                onChangeText={(t) => { setOtpCode(t.replace(/\D/g, "").slice(0, 6)); setOtpError(null); }}
+                placeholder="000000"
+                placeholderTextColor={Colors.light.textMuted}
+                keyboardType="number-pad"
+                maxLength={6}
+                autoFocus
+              />
+              {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
+            </Animated.View>
+          );
+        }
         if (investmentConfirmed) {
           return (
             <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
@@ -1210,7 +1454,7 @@ export default function OnboardingScreen() {
                 { opacity: pressed && canContinue() ? 0.9 : 1, transform: [{ scale: pressed && canContinue() ? 0.98 : 1 }] },
               ]}
               onPress={goNext}
-              disabled={!canContinue()}
+              disabled={!canContinue() || otpLoading}
             >
               <LinearGradient
                 colors={canContinue() ? [Colors.light.tint, Colors.light.tintDark] : [Colors.light.border, Colors.light.border]}
@@ -1218,8 +1462,14 @@ export default function OnboardingScreen() {
                 end={{ x: 1, y: 0 }}
                 style={styles.nextBtnGradient}
               >
-                <Text style={[styles.nextBtnText, !canContinue() && { color: Colors.light.textMuted }]}>{getButtonText()}</Text>
-                <Feather name="arrow-right" size={18} color={canContinue() ? Colors.light.white : Colors.light.textMuted} />
+                {otpLoading ? (
+                  <ActivityIndicator color={Colors.light.white} />
+                ) : (
+                  <>
+                    <Text style={[styles.nextBtnText, !canContinue() && { color: Colors.light.textMuted }]}>{getButtonText()}</Text>
+                    <Feather name="arrow-right" size={18} color={canContinue() ? Colors.light.white : Colors.light.textMuted} />
+                  </>
+                )}
               </LinearGradient>
             </Pressable>
           </View>
@@ -1421,6 +1671,26 @@ const styles = StyleSheet.create({
     textAlign: "center",
     lineHeight: 22,
     paddingHorizontal: 24,
+  },
+  otpInput: {
+    backgroundColor: Colors.light.card,
+    borderWidth: 1,
+    borderColor: Colors.light.border,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 32,
+    fontFamily: "DMSans_700Bold",
+    textAlign: "center",
+    letterSpacing: 10,
+    color: Colors.light.text,
+    width: "100%",
+    marginTop: 8,
+  },
+  errorText: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 14,
+    color: Colors.light.danger,
+    textAlign: "center",
   },
   searchInput: {
     backgroundColor: Colors.light.card,

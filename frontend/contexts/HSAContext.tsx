@@ -1,5 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, useMemo, ReactNode, useCallback } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { API_BASE_URL } from "@shared/constants";
 
 export interface Transaction {
   id: string;
@@ -79,6 +80,35 @@ export function getLoyaltyTier(balance: number): { current: LoyaltyTier | null; 
   return { current, next, progress: (balance - current.threshold) / (next.threshold - current.threshold) };
 }
 
+export interface LynxTransaction {
+  id: string;
+  category: string | null;
+  type: string | null;
+  direction: string | null;
+  amount: number;
+  shortMemo: string | null;
+  merchantName: string | null;
+  transactionDate: string | null;
+  status: string | null;
+}
+
+export interface LynxAccount {
+  id: string;
+  name: string;
+  type: string | null;
+  availableAmount: number;
+  balanceAmount: number;
+}
+
+export interface LynxMemberData {
+  firstName: string;
+  lastName: string;
+  accounts: LynxAccount[];
+  transactions: LynxTransaction[];
+  contributionLimit: number;
+  contributionTotal: number;
+}
+
 export interface HSAContextValue {
   balance: number;
   investedBalance: number;
@@ -95,10 +125,16 @@ export interface HSAContextValue {
   hasCompletedOnboarding: boolean;
   isLoading: boolean;
   userName: string;
+  memberId: string;
   portfolioIndex: number;
   totalUnreimbursed: number;
   linkedCards: LinkedCard[];
   linkedBankAccounts: LinkedBankAccount[];
+  sessionToken: string | null;
+  userEmail: string | null;
+  mfaEnabled: boolean;
+  lynxData: LynxMemberData | null;
+  lynxDataLoading: boolean;
   addLinkedCard: (card: Omit<LinkedCard, "id">) => void;
   removeLinkedCard: (cardId: string) => void;
   setDefaultCard: (cardId: string) => void;
@@ -111,7 +147,7 @@ export interface HSAContextValue {
   toggleAutoInvest: () => void;
   toggleFirstDollar: () => void;
   toggleRoundUp: () => void;
-  completeOnboarding: (name?: string, portfolioIndex?: number, customTickers?: { ticker: string; name: string; allocation: number }[]) => void;
+  completeOnboarding: (name?: string, portfolioIndex?: number, customTickers?: { ticker: string; name: string; allocation: number }[], memberId?: string) => void;
   buyHolding: (holdingId: string, amount: number) => boolean;
   buyNewTicker: (ticker: string, name: string, amount: number) => boolean;
   sellHolding: (holdingId: string, amount: number) => boolean;
@@ -119,7 +155,13 @@ export interface HSAContextValue {
   sellProportional: (amount: number) => boolean;
   updatePortfolioMix: (newAllocations: { id: string; allocation: number }[]) => void;
   applyPortfolioPreset: (index: number) => void;
-  logout: () => void;
+  login: (email: string, password: string) => Promise<{ emailOtpRequired: boolean; preAuthToken?: string }>;
+  verifyEmailOtp: (preAuthToken: string, code: string) => Promise<{ mfaRequired: boolean; preAuthToken?: string }>;
+  verifyMfa: (preAuthToken: string, code: string) => Promise<void>;
+  logout: () => Promise<void>;
+  authFetch: (url: string, options?: RequestInit) => Promise<Response>;
+  setMfaEnabled: (enabled: boolean) => void;
+  refreshLynxData: () => Promise<void>;
 }
 
 const HSAContext = createContext<HSAContextValue | null>(null);
@@ -185,7 +227,13 @@ export function HSAProvider({ children }: { children: ReactNode }) {
   const [hasCompletedOnboarding, setHasCompletedOnboarding] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState("");
+  const [memberId, setMemberId] = useState("");
   const [portfolioIndex, setPortfolioIndex] = useState(2);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [mfaEnabled, setMfaEnabled] = useState(false);
+  const [lynxData, setLynxData] = useState<LynxMemberData | null>(null);
+  const [lynxDataLoading, setLynxDataLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -202,12 +250,21 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     if (data) {
       if (data.hasCompletedOnboarding !== undefined) setHasCompletedOnboarding(data.hasCompletedOnboarding as boolean);
       if (data.userName) setUserName(data.userName as string);
+      if (data.memberId) setMemberId(data.memberId as string);
       if (data.autoInvestEnabled !== undefined) setAutoInvestEnabled(data.autoInvestEnabled as boolean);
       if (data.firstDollarEnabled !== undefined) setFirstDollarEnabled(data.firstDollarEnabled as boolean);
       if (data.roundUpEnabled !== undefined) setRoundUpEnabled(data.roundUpEnabled as boolean);
       if (typeof data.portfolioIndex === "number" && data.portfolioIndex >= 0 && data.portfolioIndex <= 4) {
         setPortfolioIndex(data.portfolioIndex as number);
       }
+    }
+    try {
+      const storedToken = await AsyncStorage.getItem("saga_session_token");
+      const storedEmail = await AsyncStorage.getItem("saga_user_email");
+      if (storedToken) setSessionToken(storedToken);
+      if (storedEmail) setUserEmail(storedEmail);
+    } catch (e) {
+      console.warn("Failed to load session from storage:", e);
     }
     setIsLoading(false);
   };
@@ -507,9 +564,10 @@ export function HSAProvider({ children }: { children: ReactNode }) {
 
   const HOLDING_COLORS = ["#2E5E3F", "#4A8BA8", "#D4A574", "#8B6B9C", "#C45B4A"];
 
-  const completeOnboarding = (name?: string, newPortfolioIndex?: number, customTickers?: { ticker: string; name: string; allocation: number }[]) => {
+  const completeOnboarding = (name?: string, newPortfolioIndex?: number, customTickers?: { ticker: string; name: string; allocation: number }[], newMemberId?: string) => {
     setHasCompletedOnboarding(true);
     if (name) setUserName(name);
+    if (newMemberId) setMemberId(newMemberId);
     const idx = newPortfolioIndex ?? portfolioIndex;
     const totalInvested = holdings.reduce((s, h) => s + h.balance, 0) || 8550;
 
@@ -542,18 +600,166 @@ export function HSAProvider({ children }: { children: ReactNode }) {
     saveData({
       hasCompletedOnboarding: true,
       ...(name ? { userName: name } : {}),
+      ...(newMemberId ? { memberId: newMemberId } : {}),
       portfolioIndex: typeof newPortfolioIndex === "number" ? newPortfolioIndex : idx,
     });
   };
 
+  const login = async (email: string, password: string): Promise<{ emailOtpRequired: boolean; preAuthToken?: string }> => {
+    const resp = await fetch(`${API_BASE_URL}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || "Invalid credentials");
+    }
+    const data = await resp.json();
+    await AsyncStorage.setItem("saga_user_email", email);
+    setUserEmail(email);
+    if (data.session_token) {
+      setSessionToken(data.session_token);
+      await AsyncStorage.setItem("saga_session_token", data.session_token);
+      return { emailOtpRequired: false };
+    }
+    return { emailOtpRequired: true, preAuthToken: data.pre_auth_token };
+  };
+
+  const verifyEmailOtp = async (preAuthToken: string, code: string): Promise<{ mfaRequired: boolean; preAuthToken?: string }> => {
+    const resp = await fetch(`${API_BASE_URL}/email-otp/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pre_auth_token: preAuthToken, code }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || "Invalid verification code");
+    }
+    const data = await resp.json();
+    if (data.mfa_required) {
+      return { mfaRequired: true, preAuthToken: data.pre_auth_token };
+    }
+    setSessionToken(data.session_token);
+    await AsyncStorage.setItem("saga_session_token", data.session_token);
+    return { mfaRequired: false };
+  };
+
+  const verifyMfa = async (preAuthToken: string, code: string): Promise<void> => {
+    const resp = await fetch(`${API_BASE_URL}/mfa/verify`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pre_auth_token: preAuthToken, code }),
+    });
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err.detail || "Invalid TOTP code");
+    }
+    const data = await resp.json();
+    setSessionToken(data.session_token);
+    const email = await AsyncStorage.getItem("saga_user_email");
+    await AsyncStorage.setItem("saga_session_token", data.session_token);
+    if (email) setUserEmail(email);
+  };
+
+  const refreshLynxData = useCallback(async () => {
+    if (!sessionToken) return;
+    setLynxDataLoading(true);
+    try {
+      const headers = { Authorization: `Bearer ${sessionToken}` };
+      const [detailsRes, balanceRes, txRes, contribRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/member/details`, { headers }),
+        fetch(`${API_BASE_URL}/member/balance`, { headers }),
+        fetch(`${API_BASE_URL}/member/transactions`, { headers }),
+        fetch(`${API_BASE_URL}/member/contribution-limit`, { headers }),
+      ]);
+
+      const details = detailsRes.ok ? await detailsRes.json() : null;
+      const balanceData = balanceRes.ok ? await balanceRes.json() : null;
+      const txData = txRes.ok ? await txRes.json() : null;
+      const contribData = contribRes.ok ? await contribRes.json() : null;
+
+      const accounts: LynxAccount[] = (balanceData?.accounts ?? []).map((a: any) => ({
+        id: a.id ?? "",
+        name: a.name ?? "",
+        type: a.type ?? null,
+        availableAmount: a.availableAmount ?? 0,
+        balanceAmount: a.balanceAmount ?? 0,
+      }));
+
+      const transactions: LynxTransaction[] = (txData?.transactions ?? []).map((t: any) => ({
+        id: t.id ?? "",
+        category: t.category ?? null,
+        type: t.type ?? null,
+        direction: t.direction ?? null,
+        amount: t.amount ?? 0,
+        shortMemo: t.shortMemo ?? null,
+        merchantName: t.merchant?.name ?? null,
+        transactionDate: t.transactionDate ?? t.serviceDate ?? null,
+        status: t.status ?? null,
+      }));
+
+      setLynxData({
+        firstName: details?.firstName ?? "",
+        lastName: details?.lastName ?? "",
+        accounts,
+        transactions,
+        contributionLimit: parseFloat(contribData?.contributionLimit ?? "0") || 0,
+        contributionTotal: parseFloat(contribData?.contributionTotal ?? "0") || 0,
+      });
+    } catch (e) {
+      console.warn("Failed to fetch Lynx member data:", e);
+    } finally {
+      setLynxDataLoading(false);
+    }
+  }, [sessionToken]);
+
+  useEffect(() => {
+    if (sessionToken) {
+      refreshLynxData();
+    } else {
+      setLynxData(null);
+    }
+  }, [sessionToken]);
+
+  const authFetch = useCallback(async (url: string, options: RequestInit = {}): Promise<Response> => {
+    const headers = new Headers(options.headers);
+    if (sessionToken) {
+      headers.set("Authorization", `Bearer ${sessionToken}`);
+    }
+    const resp = await fetch(url, { ...options, headers });
+    if (resp.status === 401) {
+      // Session expired — clear it
+      setSessionToken(null);
+      await AsyncStorage.removeItem("saga_session_token");
+    }
+    return resp;
+  }, [sessionToken]);
+
   const logout = async () => {
+    if (sessionToken) {
+      try {
+        await fetch(`${API_BASE_URL}/logout`, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${sessionToken}` },
+        });
+      } catch {
+        // fire-and-forget — ignore errors
+      }
+    }
     try {
       await AsyncStorage.removeItem(STORAGE_KEY);
+      await AsyncStorage.removeItem("saga_session_token");
+      await AsyncStorage.removeItem("saga_user_email");
     } catch (e) {
       console.warn("Failed to clear storage:", e);
     }
+    setSessionToken(null);
+    setUserEmail(null);
+    setMfaEnabled(false);
     setHasCompletedOnboarding(false);
     setUserName("");
+    setMemberId("");
     setBalance(12550);
     setInvestedBalance(8550);
     setContributionYTD(2000);
@@ -608,8 +814,12 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       userName,
       portfolioIndex,
       totalUnreimbursed,
+      memberId,
       linkedCards,
       linkedBankAccounts,
+      sessionToken,
+      userEmail,
+      mfaEnabled,
       addLinkedCard,
       removeLinkedCard,
       setDefaultCard,
@@ -630,9 +840,17 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       sellProportional,
       updatePortfolioMix,
       applyPortfolioPreset,
+      login,
+      verifyEmailOtp,
+      verifyMfa,
       logout,
+      authFetch,
+      setMfaEnabled,
+      lynxData,
+      lynxDataLoading,
+      refreshLynxData,
     }),
-    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, portfolioIndex, totalUnreimbursed, linkedCards, linkedBankAccounts]
+    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, memberId, portfolioIndex, totalUnreimbursed, linkedCards, linkedBankAccounts, sessionToken, userEmail, mfaEnabled, authFetch, lynxData, lynxDataLoading, refreshLynxData]
   );
 
   return <HSAContext.Provider value={value}>{children}</HSAContext.Provider>;
