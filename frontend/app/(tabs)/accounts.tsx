@@ -105,7 +105,7 @@ const statusConfig: Record<string, { color: string; bg: string; label: string }>
   paid: { color: Colors.light.success, bg: Colors.light.successLight, label: "Paid" },
 };
 
-function ReceiptCard({ receipt }: { receipt: Receipt }) {
+export function ReceiptCard({ receipt }: { receipt: Receipt }) {
   const status = statusConfig[receipt.status] || statusConfig.pending;
   const catInfo = getCategoryInfo(receipt.category);
 
@@ -577,7 +577,7 @@ const reimburseModalStyles = StyleSheet.create({
   },
 });
 
-function ReceiptsDashboard({
+export function ReceiptsDashboard({
   receipts,
   totalUnreimbursed,
   cashBalance,
@@ -975,7 +975,7 @@ const contStyles = StyleSheet.create({
   },
 });
 
-function ContributionsTab({
+export function ContributionsTab({
   contributionYTD,
   contributionLimit,
   contributions,
@@ -1376,6 +1376,155 @@ function SettingsRow({
     </Pressable>
   );
 }
+
+const rewardsPreviewStyles = StyleSheet.create({
+  rewardsCard: {
+    gap: 10,
+    paddingVertical: 12,
+  },
+  iconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  info: {
+    flex: 1,
+    gap: 2,
+  },
+  tierName: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 14,
+    color: Colors.light.text,
+  },
+  pts: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 12,
+    color: Colors.light.textMuted,
+  },
+  progressWrap: {
+    flex: 1,
+    gap: 4,
+  },
+  progressLabel: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 11,
+    color: Colors.light.textMuted,
+  },
+  progressTrack: {
+    height: 4,
+    backgroundColor: Colors.light.borderLight,
+    borderRadius: 2,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 2,
+  },
+});
+
+const quickContribStyles = StyleSheet.create({
+  btn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: Colors.light.tint,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+  },
+  btnText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 13,
+    color: Colors.light.white,
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  container: {
+    backgroundColor: Colors.light.card,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  headerTitle: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 20,
+    color: Colors.light.text,
+  },
+  remaining: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 13,
+    color: Colors.light.textMuted,
+    marginBottom: 20,
+  },
+  presetRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 16,
+  },
+  presetBtn: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 12,
+    backgroundColor: Colors.light.borderLight,
+    minWidth: 70,
+    alignItems: "center",
+  },
+  presetBtnActive: {
+    backgroundColor: Colors.light.tint,
+  },
+  presetText: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 15,
+    color: Colors.light.text,
+  },
+  presetTextActive: {
+    color: Colors.light.white,
+  },
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderWidth: 1.5,
+    borderColor: Colors.light.border,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 20,
+    gap: 4,
+  },
+  dollarSign: {
+    fontFamily: "DMSans_600SemiBold",
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  input: {
+    flex: 1,
+    fontFamily: "DMSans_400Regular",
+    fontSize: 16,
+    color: Colors.light.text,
+  },
+  submitBtn: {
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: "center",
+  },
+  submitText: {
+    fontFamily: "DMSans_700Bold",
+    fontSize: 16,
+    color: Colors.light.white,
+  },
+});
 
 const settStyles = StyleSheet.create({
   row: {
@@ -2315,7 +2464,7 @@ function getTierIcon(name: string): string {
   return "shield-checkmark";
 }
 
-function LoyaltySection({ balance }: { balance: number }) {
+export function LoyaltySection({ balance }: { balance: number }) {
   const loyalty = getLoyaltyTier(balance);
 
   return (
@@ -2556,7 +2705,7 @@ const SIMULATED_SCANS = [
   { title: "Blood Work Panel", amount: "89.00", provider: "Quest Diagnostics", category: "lab_test", date: new Date().toISOString().split("T")[0] },
 ];
 
-function AddReceiptModal({
+export function AddReceiptModal({
   visible,
   onClose,
   onAdd,
@@ -2932,7 +3081,8 @@ const modalStyles = StyleSheet.create({
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ tab?: string }>();
-  const { balance, cashBalance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, addContribution, autoReimburse, userName, memberId, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard, linkedBankAccounts, addLinkedBankAccount, removeLinkedBankAccount, setPrimaryBankAccount, logout, authFetch, mfaEnabled, setMfaEnabled } = useHSA();
+  const { balance, cashBalance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, addContribution, autoReimburse, userName, memberId, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard, linkedBankAccounts, addLinkedBankAccount, removeLinkedBankAccount, setPrimaryBankAccount, logout, authFetch, mfaEnabled, setMfaEnabled, loyaltyPoints } = useHSA();
+  const loyalty = getLoyaltyTier(balance);
   const [mfaSetupData, setMfaSetupData] = useState<{ totp_secret: string; qr_code_url: string } | null>(null);
   const [mfaCode, setMfaCode] = useState("");
   const [mfaDisableCode, setMfaDisableCode] = useState("");
@@ -2943,11 +3093,13 @@ export default function AccountsScreen() {
   const [showBankAccounts, setShowBankAccounts] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   const [showAddReceipt, setShowAddReceipt] = useState(false);
+  const [showQuickContrib, setShowQuickContrib] = useState(false);
+  const [quickContribAmount, setQuickContribAmount] = useState("");
 
   useEffect(() => {
     if (params.tab) {
       const tabIdx = parseInt(params.tab);
-      if (!isNaN(tabIdx) && tabIdx >= 0 && tabIdx <= 3) {
+      if (!isNaN(tabIdx) && tabIdx >= 0 && tabIdx <= 1) {
         setActiveTab(tabIdx);
       }
     }
@@ -2966,36 +3118,31 @@ export default function AccountsScreen() {
       >
         <Text style={styles.title}>Account</Text>
 
-        <SegmentedControl
-          tabs={["Receipts", "Contributions", "Rewards", "Settings"]}
-          active={activeTab}
-          onChange={setActiveTab}
-        />
+        <View style={styles.tabBar}>
+          {["Reimbursement", "Settings"].map((label, i) => (
+            <Pressable
+              key={label}
+              style={[styles.tabBarItem, activeTab === i && styles.tabBarItemActive]}
+              onPress={() => { setActiveTab(i); if (Platform.OS !== "web") Haptics.selectionAsync(); }}
+            >
+              <Text style={[styles.tabBarLabel, activeTab === i && styles.tabBarLabelActive]}>{label}</Text>
+            </Pressable>
+          ))}
+        </View>
 
         {activeTab === 0 && (
-          <ReceiptsDashboard
-            receipts={receipts}
-            totalUnreimbursed={totalUnreimbursed}
-            cashBalance={cashBalance}
-            onAutoReimburse={autoReimburse}
-            onAddReceipt={() => setShowAddReceipt(true)}
-          />
+          <Animated.View entering={Platform.OS !== "web" ? FadeInDown.duration(300) : undefined}>
+            <ReceiptsDashboard
+              receipts={receipts}
+              totalUnreimbursed={totalUnreimbursed}
+              cashBalance={cashBalance}
+              onAutoReimburse={autoReimburse}
+              onAddReceipt={() => setShowAddReceipt(true)}
+            />
+          </Animated.View>
         )}
 
         {activeTab === 1 && (
-          <ContributionsTab
-            contributionYTD={contributionYTD}
-            contributionLimit={contributionLimit}
-            contributions={contributions}
-            addContribution={addContribution}
-          />
-        )}
-
-        {activeTab === 2 && (
-          <LoyaltySection balance={balance} />
-        )}
-
-        {activeTab === 3 && (
           <Animated.View entering={Platform.OS !== "web" ? FadeInDown.duration(400) : undefined}>
             <LinkedCardsSection
               cards={linkedCards}
@@ -3262,6 +3409,67 @@ export default function AccountsScreen() {
         onRemove={removeLinkedBankAccount}
         onSetPrimary={setPrimaryBankAccount}
       />
+
+      <Modal visible={showQuickContrib} animationType="slide" transparent>
+        <KeyboardAvoidingView behavior="padding" style={quickContribStyles.overlay} keyboardVerticalOffset={0}>
+          <View style={[quickContribStyles.container, { paddingBottom: insets.bottom + 20 }]}>
+            <View style={quickContribStyles.header}>
+              <Text style={quickContribStyles.headerTitle}>Quick Contribute</Text>
+              <Pressable onPress={() => { setShowQuickContrib(false); setQuickContribAmount(""); }}>
+                <Feather name="x" size={24} color={Colors.light.text} />
+              </Pressable>
+            </View>
+
+            <Text style={quickContribStyles.remaining}>
+              ${(contributionLimit - contributionYTD).toLocaleString()} remaining this year
+            </Text>
+
+            <View style={quickContribStyles.presetRow}>
+              {[100, 250, 500, 1000].map((amt) => {
+                const isSelected = quickContribAmount === String(amt);
+                return (
+                  <Pressable
+                    key={amt}
+                    style={[quickContribStyles.presetBtn, isSelected && quickContribStyles.presetBtnActive]}
+                    onPress={() => { setQuickContribAmount(String(amt)); if (Platform.OS !== "web") Haptics.selectionAsync(); }}
+                  >
+                    <Text style={[quickContribStyles.presetText, isSelected && quickContribStyles.presetTextActive]}>${amt}</Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            <View style={quickContribStyles.inputRow}>
+              <Text style={quickContribStyles.dollarSign}>$</Text>
+              <TextInput
+                style={quickContribStyles.input}
+                placeholder="Custom amount"
+                value={quickContribAmount}
+                onChangeText={setQuickContribAmount}
+                keyboardType="decimal-pad"
+                placeholderTextColor={Colors.light.textMuted}
+              />
+            </View>
+
+            <Pressable
+              style={({ pressed }) => [
+                quickContribStyles.submitBtn,
+                { opacity: pressed ? 0.8 : 1, backgroundColor: parseFloat(quickContribAmount) > 0 ? Colors.light.tint : Colors.light.border },
+              ]}
+              onPress={() => {
+                const amount = parseFloat(quickContribAmount);
+                if (!amount || amount <= 0) return;
+                addContribution(amount);
+                setShowQuickContrib(false);
+                setQuickContribAmount("");
+                if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              }}
+            >
+              <Text style={quickContribStyles.submitText}>Contribute</Text>
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
@@ -3279,7 +3487,37 @@ const styles = StyleSheet.create({
     fontSize: 26,
     color: Colors.light.text,
     paddingTop: 8,
+    marginBottom: 16,
+  },
+  tabBar: {
+    flexDirection: "row",
+    backgroundColor: Colors.light.borderLight,
+    borderRadius: 12,
+    padding: 3,
     marginBottom: 20,
+  },
+  tabBarItem: {
+    flex: 1,
+    paddingVertical: 8,
+    alignItems: "center",
+    borderRadius: 10,
+  },
+  tabBarItemActive: {
+    backgroundColor: Colors.light.card,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  tabBarLabel: {
+    fontFamily: "DMSans_500Medium",
+    fontSize: 14,
+    color: Colors.light.textMuted,
+  },
+  tabBarLabelActive: {
+    color: Colors.light.text,
+    fontFamily: "DMSans_600SemiBold",
   },
   sectionTitle: {
     fontFamily: "DMSans_700Bold",

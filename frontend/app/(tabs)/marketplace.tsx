@@ -607,7 +607,7 @@ export default function MarketplaceScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
       <View style={styles.stickyHeader}>
-        <View style={styles.loyaltyBanner}>
+        <Pressable style={styles.loyaltyBanner} onPress={() => router.push("/rewards")}>
           <View style={styles.loyaltyLeft}>
             {loyalty.current && (
               <View style={[styles.loyaltyIconWrap, { backgroundColor: loyalty.current.color + "18" }]}>
@@ -630,7 +630,7 @@ export default function MarketplaceScreen() {
             <Text style={styles.loyaltyPointsNum}>{loyaltyPoints.toLocaleString()}</Text>
             <Text style={styles.loyaltyPointsLabel}>pts</Text>
           </View>
-        </View>
+        </Pressable>
 
         <View style={styles.searchBar}>
           <Feather name="search" size={16} color={Colors.light.textMuted} />
