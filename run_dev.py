@@ -4,8 +4,10 @@ Dev runner — starts Expo and FastAPI concurrently.
 Run from the project root: python run_dev.py
 """
 import signal
+import socket
 import subprocess
 import sys
+from functools import reduce
 import threading
 from pathlib import Path
 
@@ -13,13 +15,21 @@ ROOT = Path(__file__).parent
 FRONTEND = ROOT / "frontend"
 BACKEND = ROOT / "backend"
 
+_, _, _ips = socket.gethostbyname_ex(socket.gethostname())
+LAN_IP = reduce(lambda default_ip, ip: ip if ip.startswith("192.") else default_ip, _ips)
+
+print(f"_ips={_ips}")
+if not LAN_IP.startswith("192."):
+    print(f"LAN IP not found. IPs: {_ips}")
+    sys.exit(1)
+
 COMMANDS = [
     {
         "label": "expo",
         "cmd": "npx expo start --lan",
         "cwd": FRONTEND,
         "shell": True,
-        "interactive": True,
+        "interactive": True,  # run in interactive mode (give it direct control of CLI)
     },
     {
         "label": "fastapi",
@@ -29,7 +39,7 @@ COMMANDS = [
         ),
         "cwd": BACKEND,
         "shell": True,
-        "restart": True,
+        "restart": True,  # on process death, autorestart
     },
 ]
 

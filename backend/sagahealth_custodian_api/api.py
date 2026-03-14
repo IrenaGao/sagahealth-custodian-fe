@@ -173,7 +173,7 @@ async def member_contribution_limit(current_user: Annotated[User, Depends(get_cu
     )
     if "error" in data:
         raise HTTPException(502, "Failed to fetch contribution limit from Lynx")
-    inner = data.get("data", {})
+    inner: dict[str, Any] = data.get("data", {})
     return {
         "contributionLimit": inner.get("contributionLimit", "0"),
         "contributionTotal": inner.get("contributionTotal", "0"),
