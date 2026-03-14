@@ -26,6 +26,12 @@ class Settings(BaseSettings):
     EMAIL_OTP_ENABLED: bool | None = None
     # DB Conf
     DB_SCHEME: str = ""
+    # File Storage
+    UPLOAD_DIR: str = ""
+    S3_BUCKET: str = ""
+    AWS_REGION: str = "us-east-1"
+    AWS_ACCESS_KEY_ID: str = ""
+    AWS_SECRET_ACCESS_KEY: str = ""
 
     @model_validator(mode="after")
     def apply_defaults(self):
@@ -38,6 +44,12 @@ class Settings(BaseSettings):
         return self
 
     # Util properties for log configuration
+    @property
+    def upload_dir_path(self) -> pathlib.Path:
+        if self.UPLOAD_DIR:
+            return pathlib.Path(self.UPLOAD_DIR)
+        return pathlib.Path(__file__).parent.parent.parent / "uploads"
+
     @property
     def log_base_path(self) -> pathlib.Path:
         if self.LOG_BASE_DIR:

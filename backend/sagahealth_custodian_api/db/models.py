@@ -32,6 +32,28 @@ class User(Base):
     mfa_enabled: Mapped[bool] = mapped_column(default=False)
 
 
+class SupportTicket(Base):
+    __tablename__ = "support_tickets"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
+    body: Mapped[str] = mapped_column()
+    status: Mapped[str] = mapped_column(default="open")
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+
+class SupportTicketAttachment(Base):
+    __tablename__ = "support_ticket_attachments"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    ticket_id: Mapped[int] = mapped_column(ForeignKey("support_tickets.id"), index=True)
+    filename: Mapped[str] = mapped_column()
+    content_type: Mapped[str] = mapped_column()
+    storage_key: Mapped[str] = mapped_column()  # local path (dev) or S3 key (prod)
+    uploaded: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(default=datetime.utcnow)
+
+
 class Session(Base):
     __tablename__ = "sessions"
 

@@ -3032,7 +3032,7 @@ export default function AccountsScreen() {
               <SettingsRow icon="bell" label="Notifications" />
               <SettingsRow icon="lock" label="Security" />
               <SettingsRow icon="file-text" label="Documents" onPress={() => router.push("/documents")} />
-              <SettingsRow icon="help-circle" label="Help & Support" />
+              <SettingsRow icon="help-circle" label="Help & Support" onPress={() => router.push("/help-support")} />
             </View>
 
             <View style={styles.section}>

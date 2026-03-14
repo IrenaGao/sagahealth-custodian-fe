@@ -260,3 +260,4 @@ __marimo__/
 
 # Project-specific
 **/*.db
+uploads/
