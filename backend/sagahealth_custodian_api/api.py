@@ -61,7 +61,7 @@ async def lynx_req(method: Method | str, lynx_route: str, payload: dict[str, Any
                 f"Received response from Lynx API: {response.status_code} - {response.text}"
             )
             response.raise_for_status()
-            logger.info("Successfully enrolled member in Lynx")
+            logger.info("Successfully completed Lynx req %s", url)
         except Exception:
             logger.exception(f"An error occurred while sending request to Lynx.")
             return {"error": "Failed to complete Lynx request."}
@@ -173,7 +173,8 @@ async def member_contribution_limit(current_user: Annotated[User, Depends(get_cu
     )
     if "error" in data:
         raise HTTPException(502, "Failed to fetch contribution limit from Lynx")
+    inner = data.get("data", {})
     return {
-        "contributionLimit": data.get("contributionLimit", "0"),
-        "contributionTotal": data.get("contributionTotal", "0"),
+        "contributionLimit": inner.get("contributionLimit", "0"),
+        "contributionTotal": inner.get("contributionTotal", "0"),
     }

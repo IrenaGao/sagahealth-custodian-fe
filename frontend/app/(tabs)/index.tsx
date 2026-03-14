@@ -555,7 +555,7 @@ function mapLynxTransactions(lynxTxs: LynxTransaction[]): { id: string; type: st
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { balance: mockBalance, investedBalance: mockInvestedBalance, cashBalance: mockCashBalance, contributionYTD: mockContribYTD, contributionLimit: mockContribLimit, transactions: mockTransactions, loyaltyPoints, userName, hasCompletedOnboarding, isLoading, lynxData, lynxDataLoading } = useHSA();
+  const { balance: mockBalance, investedBalance: mockInvestedBalance, transactions: mockTransactions, loyaltyPoints, userName, hasCompletedOnboarding, isLoading, lynxData, lynxDataLoading } = useHSA();
 
   // Prefer real Lynx data where available, fall back to mock
   const displayName = lynxData?.firstName
@@ -570,12 +570,14 @@ export default function HomeScreen() {
   const displayInvested = investAccount ? investAccount.availableAmount : (lynxData ? 0 : mockInvestedBalance);
   const displayCash = totalAvailable - displayInvested;
 
-  const displayContribLimit = lynxData?.contributionLimit || mockContribLimit;
-  const displayContribYTD = lynxData?.contributionTotal || mockContribYTD;
+  const displayContribLimit = lynxData?.contributionLimit ?? 0;
+  const displayContribYTD = lynxData?.contributionTotal ?? 0;
 
   const displayTransactions = lynxData
     ? mapLynxTransactions(lynxData.transactions)
     : mockTransactions;
+
+  const isDataLoading = lynxDataLoading && !lynxData;
 
   const loyalty = getLoyaltyTier(totalAvailable);
   const webTopInset = Platform.OS === "web" ? webTopInsetBase : 0;
@@ -639,18 +641,18 @@ export default function HomeScreen() {
             style={styles.balanceCard}
           >
             <Text style={styles.balanceLabel}>Total Balance</Text>
-            <Text style={styles.balanceAmount}>${totalAvailable.toLocaleString()}</Text>
+            <Text style={styles.balanceAmount}>{isDataLoading ? "Loading..." : `$${totalAvailable.toLocaleString()}`}</Text>
             <View style={styles.balanceRow}>
               <View style={styles.balanceSplit}>
                 <Feather name="trending-up" size={14} color={Colors.light.tintMuted} />
                 <Text style={styles.splitLabel}>Invested</Text>
-                <Text style={styles.splitValue}>${displayInvested.toLocaleString()}</Text>
+                <Text style={styles.splitValue}>{isDataLoading ? "..." : `$${displayInvested.toLocaleString()}`}</Text>
               </View>
               <View style={styles.balanceDivider} />
               <View style={styles.balanceSplit}>
                 <Feather name="dollar-sign" size={14} color={Colors.light.tintMuted} />
                 <Text style={styles.splitLabel}>Cash</Text>
-                <Text style={styles.splitValue}>${displayCash.toLocaleString()}</Text>
+                <Text style={styles.splitValue}>{isDataLoading ? "..." : `$${displayCash.toLocaleString()}`}</Text>
               </View>
             </View>
 
@@ -659,20 +661,24 @@ export default function HomeScreen() {
               <View style={styles.contribHeader}>
                 <Text style={styles.contribLabel}>Annual Contributions</Text>
                 <Text style={styles.contribRemaining}>
-                  ${(displayContribLimit - displayContribYTD).toLocaleString()} left
+                  {isDataLoading ? "..." : `$${(displayContribLimit - displayContribYTD).toLocaleString()} left`}
                 </Text>
               </View>
               <View style={styles.contribTrack}>
-                <View style={[styles.contribFill, { width: `${Math.min((displayContribYTD / displayContribLimit) * 100, 100)}%` }]} />
+                {!isDataLoading && (
+                  <View style={[styles.contribFill, { width: `${Math.min((displayContribYTD / displayContribLimit) * 100, 100)}%` }]} />
+                )}
               </View>
-              <View style={styles.contribFooter}>
-                <Text style={styles.contribDetail}>
-                  ${displayContribYTD.toLocaleString()} of ${displayContribLimit.toLocaleString()}
-                </Text>
-                <Text style={styles.contribPercent}>
-                  {Math.round((displayContribYTD / displayContribLimit) * 100)}%
-                </Text>
-              </View>
+              {!isDataLoading && (
+                <View style={styles.contribFooter}>
+                  <Text style={styles.contribDetail}>
+                    ${displayContribYTD.toLocaleString()} of ${displayContribLimit.toLocaleString()}
+                  </Text>
+                  <Text style={styles.contribPercent}>
+                    {Math.round((displayContribYTD / displayContribLimit) * 100)}%
+                  </Text>
+                </View>
+              )}
             </View>
           </LinearGradient>
         </Animated.View>
@@ -723,9 +729,9 @@ export default function HomeScreen() {
               </Pressable>
             </View>
             <View style={styles.txList}>
-              {displayTransactions.slice(0, 5).map((tx) => (
-                <TransactionItem key={tx.id} tx={tx} />
-              ))}
+              {isDataLoading
+                ? <Text style={styles.loadingText}>Loading...</Text>
+                : displayTransactions.slice(0, 5).map((tx) => <TransactionItem key={tx.id} tx={tx} />)}
             </View>
           </View>
         </Animated.View>
@@ -980,4 +986,10 @@ const styles = StyleSheet.create({
     color: Colors.light.tint,
   },
   txList: {},
+  loadingText: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 14,
+    color: Colors.light.textMuted,
+    paddingVertical: 12,
+  },
 });
