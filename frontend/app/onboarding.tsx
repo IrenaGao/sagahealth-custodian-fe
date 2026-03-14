@@ -176,15 +176,19 @@ export default function OnboardingScreen() {
   const [investPercentCustomText, setInvestPercentCustomText] = useState("");
   const [investmentConfirmed, setInvestmentConfirmed] = useState(false);
   const [enrollPreAuthToken, setEnrollPreAuthToken] = useState<string | null>(null);
+  const [enrolling, setEnrolling] = useState(false);
+  const [enrollError, setEnrollError] = useState<string | null>(null);
+  const [enrollDone, setEnrollDone] = useState(false);
+  const [clientMemberId] = useState(() => ExpoCrypto.randomUUID());
   const [otpCode, setOtpCode] = useState("");
   const [otpError, setOtpError] = useState<string | null>(null);
   const [otpLoading, setOtpLoading] = useState(false);
 
   useEffect(() => {
-    if (step === 3) {
-      const t = setTimeout(() => setStep(4), 3000);
-      return () => clearTimeout(t);
+    if (step === 3 && !enrollDone) {
+      enrollMember();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
   useEffect(() => {
@@ -194,13 +198,9 @@ export default function OnboardingScreen() {
   }, [step]);
 
 
-  const finalizeOnboarding = async () => {
-    const portfolioChoice =
-      useCustomTickers && customTickerTotal === 100
-        ? { custom_tickers: customTickerSelections }
-        : { portfolio_index: portfolioIndex };
-
-    const clientMemberId = ExpoCrypto.randomUUID();
+  const enrollMember = async () => {
+    setEnrolling(true);
+    setEnrollError(null);
     const payload = {
       enrollment: {
         data: {
@@ -216,9 +216,7 @@ export default function OnboardingScreen() {
               }
               return null;
             })(),
-            // gender: gender,
             healthPlanCoverageType: planType === "individual" ? "Individual" : planType === "family" ? "Family" : null,
-            // race: race,
             ssn: ssn.replace(/\D/g, "") || null,
             addresses: street.trim() ? [{
               line1: street.trim(),
@@ -229,12 +227,10 @@ export default function OnboardingScreen() {
               primaryIndicator: true,
             }] : null,
             emails: [{
-              // typeDescription: "Personal",
               emailAddress: email.trim(),
               primaryIndicator: true,
             }],
             phones: [{
-              // typeDescription: "Personal",
               countryCode: HARDCODED_PHONE_COUNTRY_CODE,
               phoneNumber: phone.replace(/\D/g, ""),
               primaryIndicator: true,
@@ -251,19 +247,11 @@ export default function OnboardingScreen() {
                 }
               }
             ],
-            // memberConsents: [
-            //   {
-            //     acceptedIndicator: agreedDisclosures,
-            //     consent: HARDCODED_HSA_CUSTODIAL_AGREEMENT,
-            //     electronicSignature: `${firstName.trim()} ${lastName.trim()}`,
-            //     consentDate: formatDate(new Date())
-            //   }
-            // ]
             memberConsents: ALL_AGREEMENTS.map(agreement => ({
-                acceptedIndicator: agreedDisclosures,
-                consent: agreement,
-                electronicSignature: `${firstName.trim()} ${lastName.trim()}`,
-                consentDate: formatDate(new Date())
+              acceptedIndicator: agreedDisclosures,
+              consent: agreement,
+              electronicSignature: `${firstName.trim()} ${lastName.trim()}`,
+              consentDate: formatDate(new Date())
             }))
           },
         },
@@ -276,20 +264,6 @@ export default function OnboardingScreen() {
         password: password,
         member_id: clientMemberId,
       },
-      // TODO: map these fields to the EnrollmentPayload schema
-      // spouse_over_55: spouseOver55,
-      // employment_status: employmentStatus,
-      // irs_withholding_backup: irsWithholdingBackup,
-      // director_of_public_company: directorOfPublicCompany,
-      // director_stock_ticker: directorStockTicker.trim() || null,
-      // politically_exposed: politicallyExposed,
-      // pep_full_name: pepFullName.trim() || null,
-      // broker_dealer_affiliate: brokerDealerAffiliate,
-      // contribution_amount: contributionAmount,
-      // frequency: frequency,
-      // auto_invest: autoInvest,
-      // invest_percent: investPercent,
-      // ...portfolioChoice,
     };
 
     try {
@@ -300,13 +274,24 @@ export default function OnboardingScreen() {
       });
       if (!resp.ok) {
         const errorText = await resp.text();
-        console.error("Enrollment API error:", resp.status, errorText);
         throw new Error(`[${resp.status}] ${errorText}`);
       }
-    } catch (err) {
-      console.error("Enrollment API error:", err);
+      setEnrollDone(true);
+      const result = await login(email.trim(), password);
+      if (result.emailOtpRequired && result.preAuthToken) {
+        setEnrollPreAuthToken(result.preAuthToken);
+      } else {
+        setStep(4);
+      }
+    } catch (err: any) {
+      console.error("Enrollment error:", err);
+      setEnrollError(err?.message || "Failed to create your account. Please try again.");
+    } finally {
+      setEnrolling(false);
     }
+  };
 
+  const finalizeOnboarding = () => {
     completeOnboarding(
       firstName.trim() || undefined,
       useCustomTickers && customTickerTotal === 100 ? undefined : portfolioIndex,
@@ -314,41 +299,28 @@ export default function OnboardingScreen() {
       clientMemberId
     );
     if (autoInvest) toggleAutoInvest();
-    try {
-      const result = await login(email.trim(), password);
-      if (result.emailOtpRequired && result.preAuthToken) {
-        setEnrollPreAuthToken(result.preAuthToken);
-        return;
-      }
-    } catch (e) {
-      console.warn("Auto-login after enrollment failed:", e);
-    }
-    router.replace("/(tabs)"); // OTP disabled or login failed — auth gate handles the rest
+    router.replace("/(tabs)");
   };
 
   const goNext = async () => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    if (step === 3) {
+      setOtpLoading(true);
+      setOtpError(null);
+      try {
+        await verifyEmailOtp(enrollPreAuthToken!, otpCode);
+        setStep(4);
+      } catch (e: any) {
+        setOtpError(e?.message || "Invalid code. Please try again.");
+        setOtpCode("");
+      } finally {
+        setOtpLoading(false);
+      }
+      return;
+    }
     if (step === 11) {
       if (!investmentConfirmed) {
         setInvestmentConfirmed(true);
-        return;
-      }
-      if (enrollPreAuthToken) {
-        setOtpLoading(true);
-        setOtpError(null);
-        try {
-          const result = await verifyEmailOtp(enrollPreAuthToken, otpCode);
-          if (result.mfaRequired) {
-            router.replace({ pathname: "/mfa-verify", params: { preAuthToken: result.preAuthToken } });
-          } else {
-            router.replace("/(tabs)");
-          }
-        } catch (e: any) {
-          setOtpError(e?.message || "Invalid code. Please try again.");
-          setOtpCode("");
-        } finally {
-          setOtpLoading(false);
-        }
         return;
       }
       finalizeOnboarding();
@@ -397,6 +369,8 @@ export default function OnboardingScreen() {
         );
       case 2:
         return planType !== null && agreedDisclosures;
+      case 3:
+        return enrollPreAuthToken !== null && otpCode.length === 6;
       case 4:
         return true;
       case 6:
@@ -423,7 +397,6 @@ export default function OnboardingScreen() {
         }
         return true;
       case 11:
-        if (enrollPreAuthToken) return otpCode.length === 6;
         return true;
       default:
         return false;
@@ -431,17 +404,17 @@ export default function OnboardingScreen() {
   };
 
   const getButtonText = (): string => {
+    if (step === 3) return "Verify Code";
     if (step === 4) return "Add Funds";
     if (step === 7) return "Start Investing";
     if (step === 11) {
-      if (enrollPreAuthToken) return "Verify Code";
       if (investmentConfirmed) return "Go to Dashboard";
       return "Confirm & Invest";
     }
     return "Continue";
   };
 
-  const showButton = step !== 3 && step !== 5;
+  const showButton = (step !== 3 || enrollPreAuthToken !== null) && step !== 5;
 
   const getAge = (): number => {
     if (!dob || dob.length < 8) return 0;
@@ -683,10 +656,47 @@ export default function OnboardingScreen() {
         );
 
       case 3:
+        if (enrollPreAuthToken) {
+          return (
+            <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
+              <Ionicons name="mail" size={80} color={Colors.light.tint} />
+              <Text style={styles.successTitle}>Check Your Email</Text>
+              <Text style={styles.successSubtitle}>
+                We sent a 6-digit verification code to {email.trim()}. It expires in 10 minutes.
+              </Text>
+              <TextInput
+                style={styles.otpInput}
+                value={otpCode}
+                onChangeText={(t) => { setOtpCode(t.replace(/\D/g, "").slice(0, 6)); setOtpError(null); }}
+                placeholder="000000"
+                placeholderTextColor={Colors.light.textMuted}
+                keyboardType="number-pad"
+                maxLength={6}
+                autoFocus
+              />
+              {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
+            </Animated.View>
+          );
+        }
+        if (enrollError) {
+          return (
+            <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
+              <Ionicons name="alert-circle-outline" size={80} color={Colors.light.danger} />
+              <Text style={styles.successTitle}>Something went wrong</Text>
+              <Text style={styles.successSubtitle}>{enrollError}</Text>
+              <Pressable
+                onPress={enrollMember}
+                style={{ marginTop: 16, paddingVertical: 12, paddingHorizontal: 32, backgroundColor: Colors.light.tint, borderRadius: 12 }}
+              >
+                <Text style={{ fontFamily: "DMSans_600SemiBold", fontSize: 15, color: Colors.light.white }}>Try Again</Text>
+              </Pressable>
+            </Animated.View>
+          );
+        }
         return (
           <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
             <ActivityIndicator size="large" color={Colors.light.tint} />
-            <Text style={styles.processingText}>Verifying your information...</Text>
+            <Text style={styles.processingText}>Creating member account...</Text>
           </Animated.View>
         );
 
@@ -1283,28 +1293,6 @@ export default function OnboardingScreen() {
         );
 
       case 11:
-        if (enrollPreAuthToken) {
-          return (
-            <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>
-              <Ionicons name="mail" size={80} color={Colors.light.tint} />
-              <Text style={styles.successTitle}>Check Your Email</Text>
-              <Text style={styles.successSubtitle}>
-                We sent a 6-digit verification code to {email.trim()}. It expires in 10 minutes.
-              </Text>
-              <TextInput
-                style={[styles.otpInput]}
-                value={otpCode}
-                onChangeText={(t) => { setOtpCode(t.replace(/\D/g, "").slice(0, 6)); setOtpError(null); }}
-                placeholder="000000"
-                placeholderTextColor={Colors.light.textMuted}
-                keyboardType="number-pad"
-                maxLength={6}
-                autoFocus
-              />
-              {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
-            </Animated.View>
-          );
-        }
         if (investmentConfirmed) {
           return (
             <Animated.View entering={Platform.OS !== "web" ? FadeIn.duration(400) : undefined} style={styles.centeredStep}>

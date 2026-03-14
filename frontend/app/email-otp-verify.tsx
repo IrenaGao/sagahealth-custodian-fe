@@ -29,10 +29,7 @@ export default function EmailOTPVerifyScreen() {
     setLoading(true);
     setError(null);
     try {
-      const result = await verifyEmailOtp(preAuthToken, code);
-      if (result.mfaRequired) {
-        router.replace({ pathname: "/mfa-verify", params: { preAuthToken: result.preAuthToken } });
-      }
+      await verifyEmailOtp(preAuthToken, code);
       // auth gate handles redirect to /(tabs) on sessionToken set
     } catch (e: any) {
       setError(e?.message || "Invalid code. Please try again.");
