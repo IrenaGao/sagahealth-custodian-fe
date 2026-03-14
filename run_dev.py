@@ -7,6 +7,7 @@ import signal
 import socket
 import subprocess
 import sys
+import os
 from functools import reduce
 import threading
 from pathlib import Path
@@ -18,7 +19,7 @@ BACKEND = ROOT / "backend"
 _, _, _ips = socket.gethostbyname_ex(socket.gethostname())
 LAN_IP = reduce(lambda default_ip, ip: ip if ip.startswith("192.") else default_ip, _ips)
 
-print(f"_ips={_ips}")
+# print(f"_ips={_ips}")
 if not LAN_IP.startswith("192."):
     print(f"LAN IP not found. IPs: {_ips}")
     sys.exit(1)
@@ -30,12 +31,15 @@ COMMANDS = [
         "cwd": FRONTEND,
         "shell": True,
         "interactive": True,  # run in interactive mode (give it direct control of CLI)
+        "env": {
+            "REACT_NATIVE_PACKAGER_HOSTNAME": LAN_IP
+        }
     },
     {
         "label": "fastapi",
         "cmd": (
             "poetry run uvicorn sagahealth_custodian_api.app:app"
-            " --reload --port 8000 --host 0.0.0.0"
+            f" --reload --port 8000 --host {LAN_IP}"
         ),
         "cwd": BACKEND,
         "shell": True,
@@ -86,6 +90,9 @@ def main() -> None:
         flags = (subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW) if (
             sys.platform == "win32" and not interactive
         ) else 0
+        env = os.environ.copy()
+        _env = spec.get("env", {})
+        env.update(_env)
         proc = subprocess.Popen(
             spec["cmd"],
             cwd=spec["cwd"],
@@ -93,6 +100,7 @@ def main() -> None:
             stdout=None if interactive else subprocess.PIPE,
             stderr=None if interactive else subprocess.STDOUT,
             stdin=None if interactive else subprocess.DEVNULL,
+            env=env,
             text=True,
             bufsize=1,
             creationflags=flags,
@@ -104,7 +112,7 @@ def main() -> None:
             )
             t.start()
             threads.append(t)
-        print(f"Started {spec['label']} (pid {proc.pid})")
+        print(f"Started {spec['label']} (pid {proc.pid}) w/ env: {spec.get("env", {})}")
 
     def shutdown(sig, frame):
         print("\nShutting down…")
@@ -141,6 +149,10 @@ def main() -> None:
                         f"{color}[{label}]{RESET}"
                         f" exited (code {proc.returncode}), restarting…"
                     )
+                    
+                    env = os.environ.copy()
+                    _env = spec.get("env", {})
+                    env.update(_env)
                     new_proc = subprocess.Popen(
                         spec["cmd"],
                         cwd=spec["cwd"],
@@ -148,6 +160,7 @@ def main() -> None:
                         stdout=subprocess.PIPE,
                         stderr=subprocess.STDOUT,
                         stdin=subprocess.DEVNULL,
+                        env=env,
                         text=True,
                         bufsize=1,
                         creationflags=(subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW) if sys.platform == "win32" else 0,
