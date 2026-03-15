@@ -15,10 +15,12 @@ export default function RewardsScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
-      <Pressable onPress={() => router.back()} style={styles.backBtn}>
-        <Feather name="arrow-left" size={22} color={Colors.light.text} />
-      </Pressable>
-      <Text style={styles.title}>Rewards</Text>
+      <View style={styles.header}>
+        <Pressable onPress={() => router.back()} style={styles.backBtn}>
+          <Feather name="arrow-left" size={28} color={Colors.light.text} />
+        </Pressable>
+        <Text style={styles.title}>Rewards</Text>
+      </View>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: Platform.OS === "web" ? webBottomPadding : Platform.OS === "android" ? insets.bottom * 2.8 : undefined }]}
@@ -35,17 +37,21 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.light.background,
   },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+    gap: 10,
+  },
   backBtn: {
     padding: 4,
-    paddingHorizontal: 20,
-    paddingTop: 4,
   },
   title: {
     fontFamily: "DMSans_700Bold",
     fontSize: 28,
     color: Colors.light.text,
-    paddingHorizontal: 20,
-    paddingBottom: 8,
   },
   scrollContent: {
     paddingHorizontal: 20,
