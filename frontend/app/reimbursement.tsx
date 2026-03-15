@@ -16,12 +16,10 @@ export default function ReimbursementScreen() {
 
   return (
     <View style={[styles.container, { paddingTop: insets.top + webTopInset }]}>
-      <View style={styles.header}>
-        <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Feather name="arrow-left" size={22} color={Colors.light.text} />
-        </Pressable>
-        <Text style={styles.title}>Reimbursement</Text>
-      </View>
+      <Pressable onPress={() => router.back()} style={styles.backBtn}>
+        <Feather name="arrow-left" size={22} color={Colors.light.text} />
+      </Pressable>
+      <Text style={styles.title}>Reimbursement</Text>
       <ScrollView
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
@@ -51,20 +49,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.light.background,
   },
-  header: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: 8,
-    gap: 12,
-  },
   backBtn: {
     padding: 4,
+    paddingHorizontal: 20,
+    paddingTop: 4,
   },
   title: {
     fontFamily: "DMSans_700Bold",
     fontSize: 28,
     color: Colors.light.text,
+    paddingHorizontal: 20,
+    paddingBottom: 8,
   },
   scrollContent: {
     paddingHorizontal: 20,

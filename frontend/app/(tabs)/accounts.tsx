@@ -403,7 +403,12 @@ function AutoReimburseModal({
                 style={reimburseModalStyles.customInput}
                 placeholder="0.00"
                 value={customAmount}
-                onChangeText={(t) => { setUseCustom(true); setCustomAmount(t); }}
+                onChangeText={(t) => {
+                  const cleaned = t.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+                  const match = cleaned.match(/^(\d*\.?\d{0,2})/);
+                  setUseCustom(true);
+                  setCustomAmount(match ? match[0] : "");
+                }}
                 keyboardType="decimal-pad"
                 placeholderTextColor={Colors.light.textMuted}
               />
@@ -1790,7 +1795,7 @@ const bankIcons: Record<string, string> = {
   "US Bank": "building",
 };
 
-function LinkedBankAccountsModal({
+export function LinkedBankAccountsModal({
   visible,
   onClose,
   accounts,
@@ -3081,14 +3086,8 @@ const modalStyles = StyleSheet.create({
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ tab?: string }>();
-  const { balance, cashBalance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, addContribution, autoReimburse, userName, memberId, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard, linkedBankAccounts, addLinkedBankAccount, removeLinkedBankAccount, setPrimaryBankAccount, logout, authFetch, mfaEnabled, setMfaEnabled, loyaltyPoints } = useHSA();
+  const { balance, cashBalance, receipts, transactions, contributionYTD, contributionLimit, addReceipt, addContribution, autoReimburse, userName, memberId, totalUnreimbursed, linkedCards, addLinkedCard, removeLinkedCard, setDefaultCard, linkedBankAccounts, addLinkedBankAccount, removeLinkedBankAccount, setPrimaryBankAccount, logout, authFetch, loyaltyPoints} = useHSA();
   const loyalty = getLoyaltyTier(balance);
-  const [mfaSetupData, setMfaSetupData] = useState<{ totp_secret: string; qr_code_url: string } | null>(null);
-  const [mfaCode, setMfaCode] = useState("");
-  const [mfaDisableCode, setMfaDisableCode] = useState("");
-  const [mfaLoading, setMfaLoading] = useState(false);
-  const [mfaError, setMfaError] = useState<string | null>(null);
-  const [showMfaDisable, setShowMfaDisable] = useState(false);
   const [showAddCard, setShowAddCard] = useState(false);
   const [showBankAccounts, setShowBankAccounts] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -3152,32 +3151,13 @@ export default function AccountsScreen() {
             />
 
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Account Details</Text>
-              <SettingsRow icon="user" label="Account Holder" value={userName || "Alex"} />
-              <SettingsRow icon="calendar" label="Plan Year" value="2026" />
-              <SettingsRow icon="shield" label="Account Type" value="Individual" />
-              <Pressable
-                style={({ pressed }) => [settStyles.row, { opacity: pressed ? 0.7 : 1 }]}
-                onPress={() => {
-                  setShowBankAccounts(true);
-                  if (Platform.OS !== "web") Haptics.selectionAsync();
-                }}
-              >
-                <View style={settStyles.left}>
-                  <Feather name="link" size={18} color={Colors.light.textSecondary} />
-                  <Text style={settStyles.label}>Linked Accounts</Text>
-                </View>
-                <View style={settStyles.right}>
-                  <Text style={settStyles.value}>{linkedBankAccounts.length} bank{linkedBankAccounts.length !== 1 ? "s" : ""}</Text>
-                  <Feather name="chevron-right" size={18} color={Colors.light.textMuted} />
-                </View>
-              </Pressable>
+              <SettingsRow icon="user" label="Account Details" onPress={() => router.push("/account-details")} />
             </View>
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Preferences</Text>
               <SettingsRow icon="bell" label="Notifications" />
-              <SettingsRow icon="lock" label="Security" />
+              <SettingsRow icon="lock" label="Security" onPress={() => router.push("/security")} />
               <SettingsRow icon="file-text" label="Documents" onPress={() => router.push("/documents")} />
               <SettingsRow icon="help-circle" label="Help & Support" />
             </View>
@@ -3186,144 +3166,6 @@ export default function AccountsScreen() {
               <Text style={styles.sectionTitle}>Legal</Text>
               <SettingsRow icon="book" label="Terms of Service" />
               <SettingsRow icon="shield" label="Privacy Policy" />
-            </View>
-
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Two-Factor Authentication</Text>
-              {!mfaEnabled && !mfaSetupData && (
-                <View style={styles.mfaRow}>
-                  <Text style={styles.mfaStatusText}>Status: <Text style={styles.mfaOff}>Off</Text></Text>
-                  <Pressable
-                    style={({ pressed }) => [styles.mfaBtn, { opacity: pressed ? 0.8 : 1 }]}
-                    onPress={async () => {
-                      setMfaLoading(true);
-                      setMfaError(null);
-                      try {
-                        const resp = await authFetch(`${API_BASE_URL}/mfa/setup`, { method: "POST" });
-                        const data = await resp.json();
-                        if (!resp.ok) throw new Error(data.detail || "Setup failed");
-                        setMfaSetupData(data);
-                        setMfaCode("");
-                      } catch (e: any) {
-                        setMfaError(e?.message || "Failed to start MFA setup");
-                      } finally {
-                        setMfaLoading(false);
-                      }
-                    }}
-                    disabled={mfaLoading}
-                  >
-                    {mfaLoading ? <ActivityIndicator size="small" color={Colors.light.tint} /> : <Text style={styles.mfaBtnText}>Set Up MFA</Text>}
-                  </Pressable>
-                </View>
-              )}
-              {!mfaEnabled && mfaSetupData && (
-                <View style={styles.mfaSetupContainer}>
-                  <Text style={styles.mfaInstructions}>Scan this QR code with your authenticator app (e.g. Google Authenticator):</Text>
-                  <View style={styles.qrContainer}>
-                    <QRCode value={mfaSetupData.qr_code_url} size={180} />
-                  </View>
-                  <Text style={styles.mfaInstructions}>Or enter this secret manually:</Text>
-                  <Text style={styles.mfaSecret}>{mfaSetupData.totp_secret}</Text>
-                  <Text style={styles.mfaInstructions}>Then enter the 6-digit code to confirm:</Text>
-                  <TextInput
-                    style={[styles.mfaCodeInput]}
-                    value={mfaCode}
-                    onChangeText={(t) => setMfaCode(t.replace(/\D/g, "").slice(0, 6))}
-                    placeholder="000000"
-                    placeholderTextColor={Colors.light.textMuted}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                  />
-                  {mfaError ? <Text style={styles.mfaErrorText}>{mfaError}</Text> : null}
-                  <Pressable
-                    style={({ pressed }) => [styles.mfaConfirmBtn, { opacity: pressed ? 0.8 : 1 }]}
-                    onPress={async () => {
-                      if (mfaCode.length !== 6) return;
-                      setMfaLoading(true);
-                      setMfaError(null);
-                      try {
-                        const resp = await authFetch(`${API_BASE_URL}/mfa/enable`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ code: mfaCode }),
-                        });
-                        const data = await resp.json();
-                        if (!resp.ok) throw new Error(data.detail || "Enable failed");
-                        setMfaEnabled(true);
-                        setMfaSetupData(null);
-                        setMfaCode("");
-                      } catch (e: any) {
-                        setMfaError(e?.message || "Invalid code");
-                      } finally {
-                        setMfaLoading(false);
-                      }
-                    }}
-                    disabled={mfaCode.length !== 6 || mfaLoading}
-                  >
-                    {mfaLoading ? <ActivityIndicator size="small" color={Colors.light.white} /> : <Text style={styles.mfaConfirmBtnText}>Enable MFA</Text>}
-                  </Pressable>
-                  <Pressable onPress={() => { setMfaSetupData(null); setMfaError(null); }} style={styles.mfaCancelBtn}>
-                    <Text style={styles.mfaCancelBtnText}>Cancel</Text>
-                  </Pressable>
-                </View>
-              )}
-              {mfaEnabled && !showMfaDisable && (
-                <View style={styles.mfaRow}>
-                  <Text style={styles.mfaStatusText}>Status: <Text style={styles.mfaOn}>On</Text></Text>
-                  <Pressable
-                    style={({ pressed }) => [styles.mfaBtn, styles.mfaBtnDanger, { opacity: pressed ? 0.8 : 1 }]}
-                    onPress={() => { setShowMfaDisable(true); setMfaDisableCode(""); setMfaError(null); }}
-                  >
-                    <Text style={[styles.mfaBtnText, { color: Colors.light.danger }]}>Disable MFA</Text>
-                  </Pressable>
-                </View>
-              )}
-              {mfaEnabled && showMfaDisable && (
-                <View style={styles.mfaSetupContainer}>
-                  <Text style={styles.mfaInstructions}>Enter your current TOTP code to disable MFA:</Text>
-                  <TextInput
-                    style={styles.mfaCodeInput}
-                    value={mfaDisableCode}
-                    onChangeText={(t) => setMfaDisableCode(t.replace(/\D/g, "").slice(0, 6))}
-                    placeholder="000000"
-                    placeholderTextColor={Colors.light.textMuted}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                    autoFocus
-                  />
-                  {mfaError ? <Text style={styles.mfaErrorText}>{mfaError}</Text> : null}
-                  <Pressable
-                    style={({ pressed }) => [styles.mfaConfirmBtn, styles.mfaConfirmBtnDanger, { opacity: pressed ? 0.8 : 1 }]}
-                    onPress={async () => {
-                      if (mfaDisableCode.length !== 6) return;
-                      setMfaLoading(true);
-                      setMfaError(null);
-                      try {
-                        const resp = await authFetch(`${API_BASE_URL}/mfa/disable`, {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ code: mfaDisableCode }),
-                        });
-                        const data = await resp.json();
-                        if (!resp.ok) throw new Error(data.detail || "Disable failed");
-                        setMfaEnabled(false);
-                        setShowMfaDisable(false);
-                        setMfaDisableCode("");
-                      } catch (e: any) {
-                        setMfaError(e?.message || "Invalid code");
-                      } finally {
-                        setMfaLoading(false);
-                      }
-                    }}
-                    disabled={mfaDisableCode.length !== 6 || mfaLoading}
-                  >
-                    {mfaLoading ? <ActivityIndicator size="small" color={Colors.light.white} /> : <Text style={styles.mfaConfirmBtnText}>Confirm Disable</Text>}
-                  </Pressable>
-                  <Pressable onPress={() => { setShowMfaDisable(false); setMfaError(null); }} style={styles.mfaCancelBtn}>
-                    <Text style={styles.mfaCancelBtnText}>Cancel</Text>
-                  </Pressable>
-                </View>
-              )}
             </View>
 
             <Pressable
