@@ -456,7 +456,7 @@ function HoldingDetailModal({
             <View style={detailModalStyles.stat}>
               <Text style={detailModalStyles.statLabel}>Return</Text>
               <Text style={[detailModalStyles.statValue, { color: isPositive ? Colors.light.success : Colors.light.danger }]}>
-                {isPositive ? "+" : ""}{holding.returnPercent}%
+                {isPositive ? "+" : ""}{Number(holding.returnPercent).toFixed(2)}%
               </Text>
             </View>
           </View>
@@ -662,7 +662,7 @@ function HoldingCard({
               { color: isPositive ? Colors.light.success : Colors.light.danger },
             ]}
           >
-            {holding.returnPercent}%
+            {Math.round(holding.returnPercent)}%
           </Text>
         </View>
       </View>

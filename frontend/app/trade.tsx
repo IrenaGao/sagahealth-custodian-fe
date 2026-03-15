@@ -458,7 +458,11 @@ export default function TradeScreen() {
                     ref={amountInputRef}
                     style={styles.amountInput}
                     value={amountText}
-                    onChangeText={(text) => setAmountText(text.replace(/[^0-9.]/g, ""))}
+                    onChangeText={(text) => {
+                      const cleaned = text.replace(/[^0-9.]/g, "").replace(/(\..*)\./g, "$1");
+                      const match = cleaned.match(/^(\d*\.?\d{0,2})/);
+                      setAmountText(match ? match[0] : "");
+                    }}
                     placeholder="0.00"
                     placeholderTextColor={Colors.light.textMuted}
                     keyboardType="decimal-pad"
