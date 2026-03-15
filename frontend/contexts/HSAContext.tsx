@@ -132,6 +132,11 @@ export interface HSAContextValue {
   linkedBankAccounts: LinkedBankAccount[];
   sessionToken: string | null;
   userEmail: string | null;
+  userPhone: string;
+  userAddress: string;
+  setUserEmail: (email: string) => void;
+  setUserPhone: (phone: string) => void;
+  setUserAddress: (address: string) => void;
   mfaEnabled: boolean;
   lynxData: LynxMemberData | null;
   lynxDataLoading: boolean;
@@ -231,6 +236,8 @@ export function HSAProvider({ children }: { children: ReactNode }) {
   const [portfolioIndex, setPortfolioIndex] = useState(2);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [userPhone, setUserPhone] = useState("");
+  const [userAddress, setUserAddress] = useState("");
   const [mfaEnabled, setMfaEnabled] = useState(false);
   const [lynxData, setLynxData] = useState<LynxMemberData | null>(null);
   const [lynxDataLoading, setLynxDataLoading] = useState(false);
@@ -819,6 +826,11 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       linkedBankAccounts,
       sessionToken,
       userEmail,
+      userPhone,
+      userAddress,
+      setUserEmail,
+      setUserPhone,
+      setUserAddress,
       mfaEnabled,
       addLinkedCard,
       removeLinkedCard,
@@ -850,7 +862,7 @@ export function HSAProvider({ children }: { children: ReactNode }) {
       lynxDataLoading,
       refreshLynxData,
     }),
-    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, memberId, portfolioIndex, totalUnreimbursed, linkedCards, linkedBankAccounts, sessionToken, userEmail, mfaEnabled, authFetch, lynxData, lynxDataLoading, refreshLynxData]
+    [balance, investedBalance, cashBalance, contributionYTD, contributionLimit, transactions, receipts, holdings, autoInvestEnabled, firstDollarEnabled, roundUpEnabled, loyaltyPoints, hasCompletedOnboarding, isLoading, userName, memberId, portfolioIndex, totalUnreimbursed, linkedCards, linkedBankAccounts, sessionToken, userEmail, userPhone, userAddress, mfaEnabled, authFetch, lynxData, lynxDataLoading, refreshLynxData]
   );
 
   return <HSAContext.Provider value={value}>{children}</HSAContext.Provider>;

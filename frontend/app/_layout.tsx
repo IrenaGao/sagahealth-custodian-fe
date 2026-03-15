@@ -60,6 +60,11 @@ function RootLayoutNav() {
         <Stack.Screen name="nearby-services" options={{ headerShown: false, presentation: "modal" }} />
         <Stack.Screen name="documents" options={{ headerShown: false }} />
         <Stack.Screen name="trade" options={{ headerShown: false }} />
+        <Stack.Screen name="rewards" options={{ headerShown: false }} />
+        <Stack.Screen name="contributions" options={{ headerShown: false }} />
+        <Stack.Screen name="reimbursement" options={{ headerShown: false }} />
+        <Stack.Screen name="account-details" options={{ headerShown: false }} />
+        <Stack.Screen name="security" options={{ headerShown: false }} />
         <Stack.Screen name="login" options={{ headerShown: false }} />
         <Stack.Screen name="email-otp-verify" options={{ headerShown: false }} />
       </Stack>

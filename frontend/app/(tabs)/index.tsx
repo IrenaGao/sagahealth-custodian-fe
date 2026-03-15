@@ -618,13 +618,13 @@ export default function HomeScreen() {
             ) : null}
           </View>
         </View>
-        <View style={styles.headerPointsBox}>
+        <Pressable style={styles.headerPointsBox} onPress={() => router.push("/rewards")}>
           <View style={styles.headerPointsRow}>
             <Ionicons name="star" size={16} color="#F0D68A" />
             <Text style={styles.headerPointsNum}>{loyaltyPoints.toLocaleString()}</Text>
             <Text style={styles.headerPointsLabel}>pts</Text>
           </View>
-        </View>
+        </Pressable>
       </View>
 
       <ScrollView
@@ -694,21 +694,14 @@ export default function HomeScreen() {
               label="Contribute"
               color={Colors.light.tint}
               bgColor={Colors.light.tintLight}
-              onPress={() => router.push({ pathname: "/(tabs)/accounts", params: { tab: "1" } })}
-            />
-            <QuickAction
-              icon="award"
-              label="Rewards"
-              color={Colors.light.accent}
-              bgColor={Colors.light.accentLight}
-              onPress={() => router.push({ pathname: "/(tabs)/accounts", params: { tab: "2" } })}
+              onPress={() => router.push("/contributions")}
             />
             <QuickAction
               icon="send"
               label="Reimburse"
               color={Colors.light.info}
               bgColor={Colors.light.infoLight}
-              onPress={() => router.push({ pathname: "/(tabs)/accounts", params: { tab: "0" } })}
+              onPress={() => router.push("/reimbursement")}
             />
             <QuickAction
               icon="activity"
@@ -716,6 +709,13 @@ export default function HomeScreen() {
               color="#8B5CF6"
               bgColor="#F3F0FF"
               onPress={() => router.push("/(tabs)/investments")}
+            />
+            <QuickAction
+              icon="award"
+              label="Rewards"
+              color={Colors.light.accent}
+              bgColor={Colors.light.accentLight}
+              onPress={() => router.push("/rewards")}
             />
           </View>
         </Animated.View>
