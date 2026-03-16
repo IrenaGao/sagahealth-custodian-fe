@@ -15,7 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
-import { v4 as uuidv4 } from "uuid";
+import * as Crypto from "expo-crypto";
 import Colors from "@/constants/colors";
 import { webTopInsetBase, webBottomPadding } from "@/lib/platform";
 import { API_BASE_URL } from "@shared/constants";
@@ -27,6 +27,7 @@ export default function AccountDetailsScreen() {
   const webTopInset = Platform.OS === "web" ? webTopInsetBase : 0;
   const {
     userName,
+    lynxData,
     userEmail, setUserEmail,
     userPhone, setUserPhone,
     userPhoneExtension, setUserPhoneExtension,
@@ -72,7 +73,7 @@ export default function AccountDetailsScreen() {
     }
     // Generate idempotency key at the moment the user opens the edit modal so
     // retries from the same edit session reuse the same key.
-    setIdempotencyKey(uuidv4());
+    setIdempotencyKey(Crypto.randomUUID());
     setEditField(field);
     if (Platform.OS !== "web") Haptics.selectionAsync();
   };
@@ -132,7 +133,7 @@ export default function AccountDetailsScreen() {
         contentInsetAdjustmentBehavior="automatic"
       >
         <View style={styles.section}>
-          <DetailRow icon="user" label="Account Holder" value={userName || "Alex"} />
+          <DetailRow icon="user" label="Account Holder" value={lynxData?.firstName ? `${lynxData.firstName} ${lynxData.lastName}`.trim() : ""} />
           <DetailRow icon="calendar" label="Plan Year" value="2026" />
           <DetailRow icon="shield" label="Account Type" value="Individual" />
           <Pressable

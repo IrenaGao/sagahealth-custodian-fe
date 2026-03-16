@@ -2,7 +2,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import React, { PropsWithChildren, useEffect } from "react";
-import { Platform, Text, TextInput } from "react-native";
+import { ActivityIndicator, Platform, StyleSheet, Text, TextInput, View } from "react-native";
 
 // Prevent iOS Accessibility "Larger Text" from scaling the app's fonts.
 // defaultProps doesn't work in React 19, so we patch the forwardRef render fn instead.
@@ -47,8 +47,25 @@ function AuthGate({ children }: PropsWithChildren) {
     }
   }, [sessionToken, isLoading, segments, router]);
 
+  if (isLoading) {
+    return (
+      <View style={authGateStyles.loadingContainer}>
+        <ActivityIndicator size="large" color="#2E5E3F" />
+      </View>
+    );
+  }
+
   return <>{children}</>;
 }
+
+const authGateStyles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+  },
+});
 
 function RootLayoutNav() {
   return (

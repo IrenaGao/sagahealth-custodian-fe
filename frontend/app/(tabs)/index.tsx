@@ -555,12 +555,12 @@ function mapLynxTransactions(lynxTxs: LynxTransaction[]): { id: string; type: st
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { balance: mockBalance, investedBalance: mockInvestedBalance, transactions: mockTransactions, loyaltyPoints, userName, hasCompletedOnboarding, isLoading, lynxData, lynxDataLoading } = useHSA();
+  const { balance: mockBalance, investedBalance: mockInvestedBalance, transactions: mockTransactions, loyaltyPoints, userName, isLoading, lynxData, lynxDataLoading } = useHSA();
 
   // Prefer real Lynx data where available, fall back to mock
   const displayName = lynxData?.firstName
     ? `${lynxData.firstName} ${lynxData.lastName}`.trim()
-    : (userName || "");
+    : "";
 
   const totalAvailable = lynxData
     ? lynxData.accounts.reduce((s, a) => s + a.availableAmount, 0)
@@ -583,13 +583,7 @@ export default function HomeScreen() {
   const webTopInset = Platform.OS === "web" ? webTopInsetBase : 0;
   const greeting = useGreeting();
 
-  useEffect(() => {
-    if (!isLoading && !hasCompletedOnboarding) {
-      router.replace("/onboarding");
-    }
-  }, [isLoading, hasCompletedOnboarding]);
-
-  if (isLoading || !hasCompletedOnboarding) {
+  if (isLoading) {
     return <View style={[styles.container, { paddingTop: insets.top + webTopInset }]} />;
   }
 

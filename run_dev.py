@@ -138,6 +138,9 @@ def main() -> None:
     signal.signal(signal.SIGINT, shutdown)
     signal.signal(signal.SIGTERM, shutdown)
 
+    stop_hint = "Ctrl+C" if sys.platform == "win32" else "Ctrl+C (or Cmd+. in some terminals)"
+    print(f"All services started. Press {stop_hint} to stop.")
+
     # Monitor processes; auto-restart those with restart=True, shut down otherwise
     while True:
         for i, (proc, spec) in enumerate(zip(procs, COMMANDS)):

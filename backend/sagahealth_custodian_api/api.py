@@ -137,7 +137,7 @@ async def member_details(current_user: Annotated[User, Depends(get_current_user)
     data = await lynx_req(Method.GET, "member_details", params=_lynx_params(current_user))
     if "error" in data:
         raise HTTPException(502, "Failed to fetch member details from Lynx")
-    member = data.get("member", {})
+    member = data.get("data", {}).get("member", {})
     return {
         "firstName": member.get("firstName", ""),
         "lastName": member.get("lastName", ""),

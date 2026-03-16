@@ -5,12 +5,16 @@ import Colors from "@/constants/colors";
 import { useHSA } from "@/contexts/HSAContext";
 
 export default function DashboardRedirect() {
-  const { completeOnboarding } = useHSA();
+  const { completeOnboarding, lynxData, lynxDataLoading, userName } = useHSA();
 
   useEffect(() => {
-    completeOnboarding("Alex");
+    if (lynxDataLoading) return;
+    const name = lynxData
+      ? `${lynxData.firstName} ${lynxData.lastName}`.trim()
+      : userName;
+    completeOnboarding(name || undefined);
     router.replace("/(tabs)");
-  }, [completeOnboarding]);
+  }, [lynxDataLoading, lynxData, userName, completeOnboarding]);
 
   return (
     <View style={styles.container}>
