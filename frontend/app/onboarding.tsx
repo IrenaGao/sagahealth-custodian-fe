@@ -127,6 +127,8 @@ export default function OnboardingScreen() {
   const [ssn, setSsn] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [phoneExtension, setPhoneExtension] = useState("");
+  const [phoneHasExtension, setPhoneHasExtension] = useState(false);
   const [street, setStreet] = useState("");
   const [city, setCity] = useState("");
   const [state, setState] = useState("");
@@ -233,6 +235,7 @@ export default function OnboardingScreen() {
             phones: [{
               countryCode: HARDCODED_PHONE_COUNTRY_CODE,
               phoneNumber: phone.replace(/\D/g, ""),
+              ...(phoneHasExtension && phoneExtension ? { phoneExtension: parseInt(phoneExtension, 10) } : {}),
               primaryIndicator: true,
             }],
             memberCardPreferences: {
@@ -485,6 +488,28 @@ export default function OnboardingScreen() {
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Phone Number</Text>
               <TextInput style={styles.input} value={phone} onChangeText={(t) => setPhone(formatPhone(t))} placeholder="(555) 555-5555" placeholderTextColor={Colors.light.textMuted} keyboardType="phone-pad" maxLength={14} />
+              <View style={styles.extensionToggleRow}>
+                <Text style={styles.extensionToggleLabel}>Has extension</Text>
+                <Switch
+                  value={phoneHasExtension}
+                  onValueChange={(val) => {
+                    setPhoneHasExtension(val);
+                    if (!val) setPhoneExtension("");
+                  }}
+                  trackColor={{ false: Colors.light.border, true: Colors.light.tint }}
+                  thumbColor={Colors.light.white}
+                />
+              </View>
+              {phoneHasExtension && (
+                <TextInput
+                  style={[styles.input, { marginTop: 8 }]}
+                  value={phoneExtension}
+                  onChangeText={(t) => setPhoneExtension(t.replace(/\D/g, ""))}
+                  placeholder="Extension (e.g. 123)"
+                  placeholderTextColor={Colors.light.textMuted}
+                  keyboardType="number-pad"
+                />
+              )}
             </View>
             <View style={styles.formGroup}>
               <Text style={styles.inputLabel}>Password</Text>
@@ -1551,6 +1576,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: Colors.light.text,
     marginBottom: 6,
+  },
+  extensionToggleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 10,
+  },
+  extensionToggleLabel: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 14,
+    color: Colors.light.textSecondary,
   },
   input: {
     backgroundColor: Colors.light.card,

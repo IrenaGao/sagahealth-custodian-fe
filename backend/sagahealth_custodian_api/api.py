@@ -10,7 +10,10 @@ from sqlalchemy import select, insert, update, delete
 from .auth import get_current_user
 from .db.database import get_db_session
 from .db.models import User
-from .models import EnrollmentPayload, UserRegistration, UserEnrollmentPayload, UserDeletePayload
+from .models import (
+    EnrollmentPayload, UserRegistration, UserEnrollmentPayload, UserDeletePayload,
+    UpdatePhonePayload, UpdateEmailPayload, UpdateAddressPayload,
+)
 from .util import get_basic_logger, StrEnum
 from .conf import settings
 
@@ -25,6 +28,9 @@ LYNX_ROUTES: dict[str, Iterable[str]] = {
     "member_balance": ["accounts", "member", "balance"],
     "member_transactions": ["transactions", "member", "list"],
     "member_contribution_limit": ["transactions", "member", "contribution-limit"],
+    "member_update_phones": ["members", "phones"],
+    "member_update_emails": ["members", "emails"],
+    "member_update_addresses": ["members", "addresses"],
 }
 
 class Method(StrEnum):
@@ -178,3 +184,70 @@ async def member_contribution_limit(current_user: Annotated[User, Depends(get_cu
         "contributionLimit": inner.get("contributionLimit", "0"),
         "contributionTotal": inner.get("contributionTotal", "0"),
     }
+
+
+def _lynx_contact_body(current_user: User, idempotency_key: str, contact_key: str, contact_data: list[dict[str, Any]]) -> dict[str, Any]:
+    """Build the nested body structure required by Lynx contact update endpoints."""
+    return {
+        "data": {
+            "clientOrg": {"name": settings.LYNX_CLIENT_ORG_NAME},
+            "member": {
+                "clientMemberId": current_user.lynx_member_id,
+                contact_key: contact_data,
+            },
+        },
+        "idempotency": {"idempotencyKey": idempotency_key},
+    }
+
+
+@router.put("/member/phone")
+async def update_member_phone(
+    payload: UpdatePhonePayload,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    phone: dict[str, Any] = {
+        "countryCode": payload.countryCode,
+        "phoneNumber": payload.phoneNumber,
+        "primaryIndicator": True,
+    }
+    if payload.phoneExtension is not None:
+        phone["phoneExtension"] = payload.phoneExtension
+    body = _lynx_contact_body(current_user, payload.idempotencyKey, "phones", [phone])
+    data = await lynx_req(Method.PUT, "member_update_phones", payload=body)
+    if "error" in data:
+        raise HTTPException(502, "Failed to update phone in Lynx")
+    return {"success": True}
+
+
+@router.put("/member/email")
+async def update_member_email(
+    payload: UpdateEmailPayload,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    body = _lynx_contact_body(current_user, payload.idempotencyKey, "emails", [{
+        "emailAddress": payload.emailAddress,
+        "primaryIndicator": True,
+    }])
+    data = await lynx_req(Method.PUT, "member_update_emails", payload=body)
+    if "error" in data:
+        raise HTTPException(502, "Failed to update email in Lynx")
+    return {"success": True}
+
+
+@router.put("/member/address")
+async def update_member_address(
+    payload: UpdateAddressPayload,
+    current_user: Annotated[User, Depends(get_current_user)],
+):
+    body = _lynx_contact_body(current_user, payload.idempotencyKey, "addresses", [{
+        "line1": payload.line1,
+        "city": payload.city,
+        "stateProvince": payload.stateProvince,
+        "postalCode": payload.postalCode,
+        "country": payload.country,
+        "primaryIndicator": True,
+    }])
+    data = await lynx_req(Method.PUT, "member_update_addresses", payload=body)
+    if "error" in data:
+        raise HTTPException(502, "Failed to update address in Lynx")
+    return {"success": True}

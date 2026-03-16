@@ -57,3 +57,9 @@ poetry run pytest -k "test_name"     # Run a single test by name
 | Variable | Used By | Description |
 |---|---|---|
 | `DATABASE_URL` | Frontend (Drizzle) | PostgreSQL connection string |
+
+## Conventions
+
+### Idempotency Keys
+
+Idempotency keys for Lynx API requests **must be generated on the client (frontend)** and passed through to the backend. This ensures that if a network failure causes a retry, the same key is reused and the operation is not duplicated. Never generate idempotency keys on the backend, as a server-side retry or re-render would produce a new key and lose the idempotency guarantee.

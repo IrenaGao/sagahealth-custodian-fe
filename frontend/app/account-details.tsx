@@ -9,13 +9,16 @@ import {
   Modal,
   TextInput,
   KeyboardAvoidingView,
+  Switch,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { router } from "expo-router";
 import * as Haptics from "expo-haptics";
+import { v4 as uuidv4 } from "uuid";
 import Colors from "@/constants/colors";
 import { webTopInsetBase, webBottomPadding } from "@/lib/platform";
+import { API_BASE_URL } from "@shared/constants";
 import { useHSA } from "@/contexts/HSAContext";
 import { LinkedBankAccountsModal } from "./(tabs)/accounts";
 
@@ -26,33 +29,91 @@ export default function AccountDetailsScreen() {
     userName,
     userEmail, setUserEmail,
     userPhone, setUserPhone,
+    userPhoneExtension, setUserPhoneExtension,
     userAddress, setUserAddress,
     linkedBankAccounts,
     addLinkedBankAccount,
     removeLinkedBankAccount,
     setPrimaryBankAccount,
+    authFetch,
   } = useHSA();
 
   const [showBankAccounts, setShowBankAccounts] = useState(false);
   const [editField, setEditField] = useState<"email" | "phone" | "address" | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [extensionEnabled, setExtensionEnabled] = useState(false);
+  const [extensionValue, setExtensionValue] = useState("");
+  const [idempotencyKey, setIdempotencyKey] = useState("");
+
+  // userPhone is stored as raw 10-digit string to match Lynx API phoneNumber field
+  const formatPhoneNumber = (digits: string): string => {
+    const d = digits.replace(/\D/g, "").slice(0, 10);
+    if (d.length <= 3) return d.length ? `(${d}` : "";
+    if (d.length <= 6) return `(${d.slice(0, 3)}) ${d.slice(3)}`;
+    return `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}`;
+  };
 
   const fieldConfig = {
     email: { label: "Email", placeholder: "your@email.com", keyboardType: "email-address" as const, current: userEmail || "" },
-    phone: { label: "Phone Number", placeholder: "(555) 000-0000", keyboardType: "phone-pad" as const, current: userPhone },
+    phone: { label: "Phone Number", placeholder: "(555) 000-0000", keyboardType: "phone-pad" as const, current: formatPhoneNumber(userPhone) },
     address: { label: "Address", placeholder: "123 Main St, City, ST 12345", keyboardType: "default" as const, current: userAddress },
+  };
+
+  const handlePhoneChange = (text: string) => {
+    const digits = text.replace(/\D/g, "").slice(0, 10);
+    setEditValue(formatPhoneNumber(digits));
   };
 
   const openEdit = (field: "email" | "phone" | "address") => {
     setEditValue(fieldConfig[field].current);
+    if (field === "phone") {
+      setExtensionEnabled(!!userPhoneExtension);
+      setExtensionValue(userPhoneExtension || "");
+    }
+    // Generate idempotency key at the moment the user opens the edit modal so
+    // retries from the same edit session reuse the same key.
+    setIdempotencyKey(uuidv4());
     setEditField(field);
     if (Platform.OS !== "web") Haptics.selectionAsync();
   };
 
-  const saveEdit = () => {
-    if (editField === "email") setUserEmail(editValue);
-    if (editField === "phone") setUserPhone(editValue);
-    if (editField === "address") setUserAddress(editValue);
+  const saveEdit = async () => {
+    if (editField === "email") {
+      setUserEmail(editValue);
+      await authFetch(`${API_BASE_URL}/member/email`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailAddress: editValue.trim(), idempotencyKey }),
+      });
+    }
+    if (editField === "phone") {
+      const rawPhone = editValue.replace(/\D/g, "");
+      const rawExt = extensionEnabled ? extensionValue.replace(/\D/g, "") : "";
+      setUserPhone(rawPhone);
+      setUserPhoneExtension(rawExt);
+      await authFetch(`${API_BASE_URL}/member/phone`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          phoneNumber: rawPhone,
+          ...(rawExt ? { phoneExtension: parseInt(rawExt, 10) } : {}),
+          idempotencyKey,
+        }),
+      });
+    }
+    if (editField === "address") {
+      setUserAddress(editValue);
+      const parts = editValue.split(",").map((s) => s.trim());
+      const line1 = parts[0] ?? "";
+      const city = parts[1] ?? "";
+      const stateZip = parts[2] ?? "";
+      const [stateProvince, postalCode] = stateZip.split(" ").filter(Boolean);
+      await authFetch(`${API_BASE_URL}/member/address`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ line1, city, stateProvince: stateProvince ?? "", postalCode: postalCode ?? "", idempotencyKey }),
+      });
+    }
     setEditField(null);
   };
 
@@ -102,7 +163,7 @@ export default function AccountDetailsScreen() {
           <EditableRow
             icon="phone"
             label="Phone Number"
-            value={userPhone || "Not set"}
+            value={userPhone ? (userPhoneExtension ? `${formatPhoneNumber(userPhone)} ext. ${userPhoneExtension}` : formatPhoneNumber(userPhone)) : "Not set"}
             onPress={() => openEdit("phone")}
           />
           <EditableRow
@@ -139,13 +200,41 @@ export default function AccountDetailsScreen() {
             <TextInput
               style={modalStyles.input}
               value={editValue}
-              onChangeText={setEditValue}
+              onChangeText={editField === "phone" ? handlePhoneChange : setEditValue}
               placeholder={editField ? fieldConfig[editField].placeholder : ""}
               placeholderTextColor={Colors.light.textMuted}
               keyboardType={editField ? fieldConfig[editField].keyboardType : "default"}
               autoFocus
               autoCapitalize={editField === "email" ? "none" : "words"}
             />
+
+            {editField === "phone" && (
+              <View style={modalStyles.extensionRow}>
+                <View style={modalStyles.extensionLabel}>
+                  <Text style={modalStyles.extensionLabelText}>Has extension</Text>
+                </View>
+                <Switch
+                  value={extensionEnabled}
+                  onValueChange={(val) => {
+                    setExtensionEnabled(val);
+                    if (!val) setExtensionValue("");
+                  }}
+                  trackColor={{ false: Colors.light.border, true: Colors.light.tint }}
+                  thumbColor={Colors.light.white}
+                />
+              </View>
+            )}
+
+            {editField === "phone" && extensionEnabled && (
+              <TextInput
+                style={[modalStyles.input, { marginTop: 12 }]}
+                value={extensionValue}
+                onChangeText={(text) => setExtensionValue(text.replace(/\D/g, ""))}
+                placeholder="Extension (e.g. 123)"
+                placeholderTextColor={Colors.light.textMuted}
+                keyboardType="number-pad"
+              />
+            )}
 
             <Pressable
               style={({ pressed }) => [
@@ -299,5 +388,21 @@ const modalStyles = StyleSheet.create({
     fontFamily: "DMSans_700Bold",
     fontSize: 16,
     color: Colors.light.white,
+  },
+  extensionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 4,
+  },
+  extensionLabel: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  extensionLabelText: {
+    fontFamily: "DMSans_400Regular",
+    fontSize: 15,
+    color: Colors.light.text,
   },
 });

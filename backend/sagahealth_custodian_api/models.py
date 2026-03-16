@@ -102,7 +102,7 @@ class Email(BaseModel):
 class Phone(BaseModel):
     countryCode: str | None = None
     phoneNumber: str | None = None
-    # phoneExtension: str | None = None
+    phoneExtension: int | None = None
     # typeDescription: str | None = None
     primaryIndicator: bool | None = None
 
@@ -232,3 +232,24 @@ class UserEnrollmentPayload(BaseModel):
 class UserDeletePayload(BaseModel):
     clientOrgName: str
     clientMemberId: str
+
+
+class UpdatePhonePayload(BaseModel):
+    phoneNumber: str
+    phoneExtension: int | None = None
+    countryCode: str = "1"
+    idempotencyKey: str
+
+
+class UpdateEmailPayload(BaseModel):
+    emailAddress: str
+    idempotencyKey: str
+
+
+class UpdateAddressPayload(BaseModel):
+    line1: str
+    city: str
+    stateProvince: str
+    postalCode: str
+    country: str = "US"
+    idempotencyKey: str
